@@ -3,7 +3,7 @@ from models.db import query
 
 def list_all():
     return query(
-        "SELECT * FROM merchants WHERE status = 1 ORDER BY monthly_sales DESC"
+        "SELECT * FROM merchants WHERE status = 1 ORDER BY total_sales DESC"
     )
 
 
@@ -43,18 +43,3 @@ def get_menu(merchant_id):
 def find_by_user_id(user_id):
     rows = query("SELECT * FROM merchants WHERE user_id = ?", (user_id,))
     return rows[0] if rows else None
-
-
-def get_top_by_sales(limit=10):
-    return query(
-        """SELECT m.*,
-           COALESCE(SUM(o.actual_amount), 0) AS revenue
-           FROM merchants m
-           LEFT JOIN orders o ON m.merchant_id = o.merchant_id AND o.status = 4
-              AND o.created_at >= DATEADD(MONTH, -1, GETDATE())
-           WHERE m.status = 1
-           GROUP BY m.merchant_id, m.name, m.logo_url, m.rating,
-                    m.monthly_sales, m.min_delivery_price, m.delivery_fee,
-                    m.status, m.created_at
-           ORDER BY revenue DESC"""
-    )

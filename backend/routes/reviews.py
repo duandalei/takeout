@@ -1,22 +1,15 @@
 from flask import Blueprint, request, jsonify
-from routes.auth import get_user_id_from_token
+from routes.auth import require_login
 from models.review import create, list_by_merchant, get_by_order
-from models.order import find_by_id, update_status
+from models.order import find_by_id
 
 reviews_bp = Blueprint("reviews", __name__)
-
-
-def _get_user_id():
-    user_id = get_user_id_from_token()
-    if not user_id:
-        return None, jsonify({"error": "未登录"}), 401
-    return user_id, None, None
 
 
 @reviews_bp.route("/api/reviews", methods=["POST"])
 def create_review():
     """提交评价"""
-    user_id, err, code = _get_user_id()
+    user_id, err, code = require_login()
     if err:
         return err, code
 

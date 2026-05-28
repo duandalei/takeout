@@ -1,10 +1,12 @@
 <template>
   <div>
+    <div v-if="loading" class="loading">加载中...</div>
+    <template v-else>
     <div class="card merchant-header">
       <h2>{{ merchant.name }}</h2>
       <div class="merchant-meta">
         <span>★ {{ merchant.rating }}</span>
-        <span>月售 {{ merchant.monthly_sales }}</span>
+        <span>销量 {{ merchant.total_sales }}</span>
         <span>起送 ¥{{ merchant.min_delivery_price }}</span>
         <span>配送 ¥{{ merchant.delivery_fee }}</span>
       </div>
@@ -20,12 +22,13 @@
     </div>
 
     <!-- 菜品列表 -->
-    <div v-for="cat in menu.filter(c => c.category_id === activeCat)" :key="cat.category_id">
+    <div v-for="cat in menu.filter(c => c.category_id === activeCat)" :key="cat.category_id" class="dish-group">
       <div v-for="d in cat.dishes" :key="d.dish_id" class="card dish-item">
+        <div class="dish-img">{{ d.name.charAt(0) }}</div>
         <div class="dish-info">
           <h4>{{ d.name }}</h4>
           <p v-if="d.description" class="desc">{{ d.description }}</p>
-          <p class="sales">月售 {{ d.monthly_sales }}</p>
+          <p class="sales">销量 {{ d.total_sales }}</p>
           <p class="price">¥{{ d.price }}</p>
         </div>
         <div class="dish-actions">
@@ -35,6 +38,7 @@
         </div>
       </div>
     </div>
+    </template>
 
     <!-- 购物车浮条 -->
     <div v-if="cartCount > 0" class="cart-bar">
@@ -48,69 +52,40 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import { getMerchant, getMerchantMenu } from "../api";
+import { useCart } from "../composables/useCart";
 
 const route = useRoute();
 const merchant = ref({});
 const menu = ref([]);
 const activeCat = ref(null);
+const loading = ref(false);
 
-const CART_KEY = "takeout_cart";
-
-function loadCart() {
-  try { return JSON.parse(localStorage.getItem(CART_KEY) || "[]"); }
-  catch { return []; }
-}
-function saveCart(c) { localStorage.setItem(CART_KEY, JSON.stringify(c)); }
-
-const cart = ref(loadCart());
-
-const cartCount = computed(() => cart.value.reduce((s, i) => s + i.quantity, 0));
-const cartTotal = computed(() => cart.value.reduce((s, i) => s + i.price * i.quantity, 0).toFixed(2));
-
-function cartQty(dish) {
-  const item = cart.value.find(i => i.dish_id === dish.dish_id);
-  return item ? item.quantity : 0;
-}
+const { count: cartCount, total: cartTotal, cartQty, addItem, removeItem } = useCart();
 
 function addToCart(dish) {
-  const idx = cart.value.findIndex(i => i.dish_id === dish.dish_id);
-  if (idx >= 0) {
-    cart.value[idx].quantity++;
-  } else {
-    cart.value.push({
-      dish_id: dish.dish_id,
-      name: dish.name,
-      price: dish.price,
-      quantity: 1,
-      merchant_id: merchant.value.merchant_id,
-      merchant_name: merchant.value.name,
-    });
-  }
-  saveCart(cart.value);
+  addItem(dish, merchant.value.merchant_id, merchant.value.name);
 }
 
 function removeFromCart(dish) {
-  const idx = cart.value.findIndex(i => i.dish_id === dish.dish_id);
-  if (idx >= 0) {
-    cart.value[idx].quantity--;
-    if (cart.value[idx].quantity <= 0) {
-      cart.value.splice(idx, 1);
-    }
-  }
-  saveCart(cart.value);
+  removeItem(dish);
 }
 
 onMounted(async () => {
+  loading.value = true;
   const id = route.params.id;
   try {
     const { data } = await getMerchant(id);
     Object.assign(merchant.value, data);
     menu.value = data.menu || [];
     if (menu.value.length) activeCat.value = menu.value[0].category_id;
-  } catch {}
+  } catch (e) {
+    console.error("加载商家信息失败:", e);
+  } finally {
+    loading.value = false;
+  }
 });
 </script>
 
@@ -123,7 +98,9 @@ onMounted(async () => {
 .cat-tabs button { padding: 6px 16px; border: 1px solid #ddd; background: #fff; cursor: pointer; font-size: 13px; }
 .cat-tabs button.active { background: #ff6b00; color: #fff; border-color: #ff6b00; }
 
-.dish-item { display: flex; align-items: center; }
+.dish-group { padding-bottom: 60px; }
+.dish-item { display: flex; align-items: center; gap: 12px; }
+.dish-img { width: 56px; height: 56px; border-radius: 8px; background: #fff0e6; color: #ff6b00; font-size: 22px; font-weight: bold; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .dish-info { flex: 1; }
 .dish-info h4 { font-size: 15px; margin-bottom: 2px; }
 .desc { font-size: 12px; color: #999; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 400px; }
@@ -135,9 +112,15 @@ onMounted(async () => {
 .btn-add:disabled { background: #ccc; }
 .qty { min-width: 20px; text-align: center; font-size: 14px; }
 
+.loading { text-align: center; padding: 60px; color: #999; font-size: 15px; }
+
 .cart-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #333; color: #fff; z-index: 50; }
 .cart-bar-inner { max-width: 960px; margin: 0 auto; display: flex; align-items: center; padding: 12px 20px; gap: 12px; }
 .cart-icon { background: #ff6b00; padding: 2px 10px; border-radius: 12px; font-size: 14px; }
 .cart-go-btn { margin-left: auto; background: #ff6b00; color: #fff; border: none; padding: 8px 22px; border-radius: 20px; font-size: 15px; font-weight: bold; cursor: pointer; }
 .cart-go-btn:hover { background: #e55d00; }
+
+@media (max-width: 640px) {
+  .desc { max-width: 200px; }
+}
 </style>

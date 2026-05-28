@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify
-from models.dish import find_by_id, list_by_category
+from models.dish import find_by_id
 
 dishes_bp = Blueprint("dishes", __name__)
 

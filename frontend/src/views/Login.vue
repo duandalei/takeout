@@ -62,6 +62,10 @@ async function handleSubmit() {
     error.value = "手机号和密码不能为空";
     return;
   }
+  if (password.value.length < 6) {
+    error.value = "密码长度不能少于6位";
+    return;
+  }
   if (mode.value === "register" && !nickname.value.trim()) {
     error.value = "昵称不能为空";
     return;

@@ -82,4 +82,13 @@ main { max-width: 960px; margin: 0 auto; padding: 16px; }
 .btn-disabled { background: #ccc; color: #999; cursor: not-allowed; }
 
 .card { background: #fff; border-radius: 10px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+
+@media (max-width: 640px) {
+  .topbar-inner { gap: 10px; padding: 0 10px; height: 44px; }
+  nav { gap: 6px; }
+  nav a { font-size: 12px; }
+  .logo { font-size: 16px; }
+  .user-info { font-size: 12px; }
+  main { padding: 10px; }
+}
 </style>

@@ -3,7 +3,7 @@ from models.db import query, execute, get_connection
 
 def create(user_id, merchant_id, address_id, total_price, delivery_fee,
            actual_amount, remark, items):
-    """下单事务：创建订单 + 订单明细"""
+    """下单事务：创建订单 + 订单明细 + 更新销量"""
     with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
@@ -23,6 +23,16 @@ def create(user_id, merchant_id, address_id, total_price, delivery_fee,
                 (order_id, item["dish_id"], item["dish_name"],
                  item["dish_price"], item["quantity"]),
             )
+            cursor.execute(
+                "UPDATE dishes SET total_sales = ISNULL(total_sales, 0) + ? WHERE dish_id = ?",
+                (item["quantity"], item["dish_id"]),
+            )
+
+        cursor.execute(
+            "UPDATE merchants SET total_sales = ISNULL(total_sales, 0) + 1 WHERE merchant_id = ?",
+            (merchant_id,),
+        )
+
         conn.commit()
         return order_id
 

@@ -110,7 +110,9 @@ async function delAddr(id) {
   try {
     await deleteAddress(id);
     await loadAddrs();
-  } catch {}
+  } catch (e) {
+    console.error("删除地址失败:", e);
+  }
 }
 
 onMounted(loadAddrs);

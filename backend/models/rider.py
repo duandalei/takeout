@@ -1,12 +1,5 @@
 from models.db import query, execute
 
-
-def find_free_rider():
-    """分配一个空闲骑手"""
-    rows = query("SELECT TOP 1 * FROM riders WHERE status = 1 ORDER BY rider_id")
-    return rows[0] if rows else None
-
-
 def set_status(rider_id, status):
     execute("UPDATE riders SET status = ? WHERE rider_id = ?", (status, rider_id))
 

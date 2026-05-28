@@ -47,7 +47,7 @@ CREATE TABLE merchants (
     name               NVARCHAR(100) NOT NULL,
     logo_url           VARCHAR(255),
     rating             DECIMAL(2,1) DEFAULT 5.0,
-    monthly_sales      INT DEFAULT 0,
+    total_sales        INT DEFAULT 0,
     min_delivery_price DECIMAL(8,2) NOT NULL,
     delivery_fee       DECIMAL(5,2) NOT NULL,
     status             TINYINT DEFAULT 1,
@@ -75,7 +75,7 @@ CREATE TABLE dishes (
     image_url     VARCHAR(255),
     price         DECIMAL(8,2) NOT NULL,
     description   NVARCHAR(500),
-    monthly_sales INT DEFAULT 0,
+    total_sales   INT DEFAULT 0,
     status        TINYINT DEFAULT 1,
     CONSTRAINT FK_dishes_merchant  FOREIGN KEY (merchant_id) REFERENCES merchants(merchant_id),
     CONSTRAINT FK_dishes_category  FOREIGN KEY (category_id) REFERENCES categories(category_id)
@@ -97,12 +97,10 @@ CREATE TABLE addresses (
 );
 GO
 
--- 2.6 骑手表
+-- 2.6 骑手表 (姓名和电话通过 user_id JOIN users 获取)
 CREATE TABLE riders (
     rider_id INT IDENTITY(1,1) PRIMARY KEY,
     user_id  INT NULL,
-    name     NVARCHAR(50) NOT NULL,
-    phone    VARCHAR(11) NOT NULL,
     status   TINYINT DEFAULT 1,  -- 1空闲 2配送中 0离线
     CONSTRAINT FK_riders_user FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
@@ -121,6 +119,7 @@ CREATE TABLE orders (
     status        TINYINT DEFAULT 1,  -- 1待支付 2待接单 3配送中 4已送达 5已取消 6待配送
     remark        NVARCHAR(200),
     paid_at       DATETIME NULL,
+    accepted_at   DATETIME NULL,
     delivered_at  DATETIME NULL,
     created_at    DATETIME DEFAULT GETDATE(),
     CONSTRAINT FK_orders_user     FOREIGN KEY (user_id)     REFERENCES users(user_id),
@@ -228,9 +227,9 @@ INSERT INTO addresses (user_id, contact_name, phone, province, city, district, d
 GO
 
 -- 骑手
-INSERT INTO riders (user_id, name, phone) VALUES
-((SELECT user_id FROM users WHERE phone = '13900000001'), N'王骑手', '13900000001'),
-((SELECT user_id FROM users WHERE phone = '13900000002'), N'赵骑手', '13900000002');
+INSERT INTO riders (user_id) VALUES
+((SELECT user_id FROM users WHERE phone = '13900000001')),
+((SELECT user_id FROM users WHERE phone = '13900000002'));
 GO
 
 PRINT N'>>> 数据库初始化完成 <<<';

@@ -2,7 +2,7 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify
 from routes.auth import get_user_id_from_token, require_role
 from models.rider import find_by_id, get_pending_orders, set_status, find_by_user_id, get_available_orders
-from models.order import find_by_id as find_order, update_status, list_by_rider, assign_rider
+from models.order import find_by_id as find_order, update_status, list_by_rider, assign_rider, get_items
 
 riders_bp = Blueprint("riders", __name__)
 
@@ -16,6 +16,8 @@ def rider_orders():
     if not rider:
         return jsonify({"error": "骑手信息不存在"}), 404
     orders = list_by_rider(rider["rider_id"])
+    for o in orders:
+        o["items"] = get_items(o["order_id"])
     return jsonify(orders)
 
 
@@ -53,6 +55,8 @@ def available_orders():
     if err:
         return err
     orders = get_available_orders()
+    for o in orders:
+        o["items"] = get_items(o["order_id"])
     return jsonify(orders)
 
 
@@ -82,9 +86,3 @@ def accept_order(order_id):
 
     return jsonify({"message": "接单成功"})
 
-
-@riders_bp.route("/api/riders", methods=["GET"])
-def list_free_riders():
-    from models.db import query
-    riders = query("SELECT * FROM riders WHERE status = 1")
-    return jsonify(riders)

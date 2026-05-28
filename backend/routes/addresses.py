@@ -1,20 +1,13 @@
 from flask import Blueprint, request, jsonify
-from routes.auth import get_user_id_from_token
+from routes.auth import require_login
 from models.address import list_by_user, find_by_id, create, update, delete
 
 addresses_bp = Blueprint("addresses", __name__)
 
 
-def _get_user_id():
-    user_id = get_user_id_from_token()
-    if not user_id:
-        return None, jsonify({"error": "未登录"}), 401
-    return user_id, None, None
-
-
 @addresses_bp.route("/api/addresses", methods=["GET"])
 def get_addresses():
-    user_id, err, code = _get_user_id()
+    user_id, err, code = require_login()
     if err:
         return err, code
     return jsonify(list_by_user(user_id))
@@ -22,7 +15,7 @@ def get_addresses():
 
 @addresses_bp.route("/api/addresses", methods=["POST"])
 def create_address():
-    user_id, err, code = _get_user_id()
+    user_id, err, code = require_login()
     if err:
         return err, code
 
@@ -47,7 +40,7 @@ def create_address():
 
 @addresses_bp.route("/api/addresses/<int:address_id>", methods=["PUT"])
 def update_address(address_id):
-    user_id, err, code = _get_user_id()
+    user_id, err, code = require_login()
     if err:
         return err, code
 
@@ -62,7 +55,7 @@ def update_address(address_id):
 
 @addresses_bp.route("/api/addresses/<int:address_id>", methods=["DELETE"])
 def delete_address(address_id):
-    user_id, err, code = _get_user_id()
+    user_id, err, code = require_login()
     if err:
         return err, code
 

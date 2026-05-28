@@ -44,6 +44,14 @@ def require_role(*allowed_roles):
     return user_id, None
 
 
+def require_login():
+    """返回 (user_id, None, None) 或 (None, error_response, status_code)"""
+    user_id = get_user_id_from_token()
+    if not user_id:
+        return None, jsonify({"error": "未登录"}), 401
+    return user_id, None, None
+
+
 VALID_ROLES = ("customer", "rider", "merchant")
 
 
@@ -61,6 +69,8 @@ def register():
         return jsonify({"error": "手机号、密码和昵称不能为空"}), 400
     if len(phone) != 11 or not phone.isdigit():
         return jsonify({"error": "手机号格式不正确"}), 400
+    if len(password) < 6:
+        return jsonify({"error": "密码长度不能少于6位"}), 400
 
     existing = find_by_phone(phone)
     if existing:

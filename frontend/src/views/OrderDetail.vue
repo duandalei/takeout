@@ -7,6 +7,15 @@
         <span :class="`status status-${order.status}`">{{ statusText(order.status) }}</span>
         <span class="order-id">#{{ order.order_id }}</span>
       </div>
+      <!-- 状态进度条 -->
+      <div v-if="order.status !== 5" class="progress-bar">
+        <div v-for="(step, idx) in steps" :key="idx" class="step" :class="{ done: step.done, current: step.current }">
+          <div class="step-dot"><span v-if="step.done">&#10003;</span></div>
+          <div class="step-label">{{ step.label }}</div>
+          <div v-if="idx < steps.length - 1" class="step-line" :class="{ filled: step.done }"></div>
+        </div>
+      </div>
+      <div v-else class="cancelled-notice">此订单已取消</div>
       <div class="order-info">
         <p>下单时间：{{ formatDate(order.created_at) }}</p>
         <p v-if="order.paid_at">支付时间：{{ formatDate(order.paid_at) }}</p>
@@ -32,6 +41,13 @@
       <div class="price-sum total">
         <span>实付</span><span>¥{{ order.actual_amount }}</span>
       </div>
+    </div>
+
+    <!-- 配送地址 -->
+    <div v-if="order.address" class="card">
+      <h4>配送地址</h4>
+      <p>{{ order.address.contact_name }} {{ order.address.phone }}</p>
+      <p class="addr-detail">{{ order.address.province }}{{ order.address.city }}{{ order.address.district }} {{ order.address.detail }}</p>
     </div>
 
     <!-- 备注 -->
@@ -71,34 +87,50 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import { getOrder, payOrder, cancelOrder, createReview } from "../api";
+import { STATUS_FLOW, STATUS_MAP, statusText } from "../constants";
 
 const route = useRoute();
 const order = ref({});
+
+const steps = computed(() => {
+  const s = order.value.status;
+  if (s === 5) return [];
+  const currentIdx = STATUS_FLOW.indexOf(s);
+  return STATUS_FLOW.map((code, idx) => ({
+    label: STATUS_MAP[code],
+    done: idx < currentIdx,
+    current: idx === currentIdx,
+  }));
+});
 const showReview = ref(false);
 const rating = ref(5);
 const reviewContent = ref("");
 const reviewError = ref("");
 const reviewSubmitting = ref(false);
 
-const STATUS_MAP = { 1: "待支付", 2: "待接单", 3: "配送中", 4: "已送达", 5: "已取消", 6: "待配送" };
-function statusText(s) { return STATUS_MAP[s] || "未知"; }
 function formatDate(d) { return d ? new Date(d).toLocaleString("zh-CN") : ""; }
 
 async function loadOrder() {
   try {
     const { data } = await getOrder(route.params.id);
     order.value = data;
-  } catch {}
+  } catch (e) {
+    console.error("加载订单失败:", e);
+  }
 }
 
 async function doPay() {
+  if (!confirm("确认支付 ¥" + order.value.actual_amount + "？")) return;
   try {
     await payOrder(order.value.order_id);
     await loadOrder();
-  } catch {}
+  } catch (e) {
+    console.error("支付失败:", e);
+    alert("支付失败，请重试");
+  }
 }
 
 async function doCancel() {
@@ -106,7 +138,9 @@ async function doCancel() {
   try {
     await cancelOrder(order.value.order_id);
     await loadOrder();
-  } catch {}
+  } catch (e) {
+    console.error("取消订单失败:", e);
+  }
 }
 
 async function submitReview() {
@@ -161,6 +195,21 @@ onMounted(loadOrder);
 
 textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; outline: none; margin: 10px 0; resize: vertical; }
 .error { color: #e74c3c; font-size: 13px; margin-bottom: 8px; }
+
+.addr-detail { font-size: 13px; color: #888; margin-top: 2px; }
+
+.progress-bar { display: flex; align-items: flex-start; margin: 16px 0; padding: 0 4px; }
+.step { display: flex; flex-direction: column; align-items: center; position: relative; flex: 1; }
+.step-dot { width: 24px; height: 24px; border-radius: 50%; background: #e0e0e0; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #fff; z-index: 1; }
+.step.done .step-dot { background: #ff6b00; }
+.step.current .step-dot { background: #ff6b00; box-shadow: 0 0 0 4px rgba(255,107,0,.2); }
+.step-label { font-size: 11px; color: #bbb; margin-top: 4px; white-space: nowrap; }
+.step.done .step-label,
+.step.current .step-label { color: #ff6b00; font-weight: bold; }
+.step-line { position: absolute; top: 12px; left: 50%; width: 100%; height: 2px; background: #e0e0e0; z-index: 0; }
+.step-line.filled { background: #ff6b00; }
+
+.cancelled-notice { text-align: center; padding: 12px; color: #d63031; font-size: 14px; font-weight: bold; background: #fff0f0; border-radius: 6px; margin: 8px 0; }
 
 h4 { font-size: 14px; color: #555; margin-bottom: 8px; }
 </style>

@@ -19,12 +19,11 @@
 <script setup>
 import { ref, onMounted } from "vue";
 import { getMyOrders } from "../api";
+import { statusText } from "../constants";
 
 const orders = ref([]);
 const loading = ref(false);
 
-const STATUS_MAP = { 1: "待支付", 2: "待接单", 3: "配送中", 4: "已送达", 5: "已取消", 6: "待配送" };
-function statusText(s) { return STATUS_MAP[s] || "未知"; }
 function formatDate(d) { return d ? new Date(d).toLocaleString("zh-CN") : ""; }
 
 onMounted(async () => {

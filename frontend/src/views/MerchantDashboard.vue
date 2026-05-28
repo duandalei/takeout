@@ -28,6 +28,9 @@
         <div>客户：{{ o.contact_name || '-' }} {{ o.contact_phone || '' }}</div>
         <div>地址：{{ o.address_detail || '' }}</div>
         <div>金额：¥{{ o.actual_amount }}</div>
+        <div v-if="o.items && o.items.length" class="items-summary">
+          {{ o.items.map(i => `${i.dish_name} x${i.quantity}`).join('、') }}
+        </div>
       </div>
       <button
         v-if="o.status === 2"
@@ -44,17 +47,13 @@
 <script setup>
 import { ref, onMounted } from "vue";
 import { merchantOrders, acceptOrder } from "../api";
+import { statusText } from "../constants";
 
 const orders = ref([]);
 const loading = ref(false);
 const accepting = ref(null);
 const filterStatus = ref(null);
 const merchantName = ref("");
-
-const statusText = (s) => {
-  const map = { 1: "待支付", 2: "待接单", 3: "配送中", 4: "已送达", 5: "已取消", 6: "待配送" };
-  return map[s] || "未知";
-};
 
 function setFilter(status) {
   filterStatus.value = status;
@@ -109,5 +108,6 @@ onMounted(fetchOrders);
 .status-6 { background: #e8f5e9; color: #2e7d32; }
 .order-info { font-size: 13px; color: #666; line-height: 1.8; }
 .order-info div { margin-bottom: 2px; }
+.items-summary { font-size: 12px; color: #ff6b00; margin-top: 4px; }
 .loading, .empty { text-align: center; padding: 32px; color: #999; }
 </style>

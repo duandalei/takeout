@@ -38,10 +38,3 @@ def execute(sql, params=None):
         except Exception:
             return None
 
-
-def execute_many(sql, params_list):
-    """批量执行"""
-    with get_connection() as conn:
-        cursor = conn.cursor()
-        cursor.executemany(sql, params_list)
-        conn.commit()

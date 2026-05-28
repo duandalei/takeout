@@ -65,9 +65,10 @@
 import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { getMerchant, getAddresses, createOrder } from "../api";
+import { useCart } from "../composables/useCart";
 
 const router = useRouter();
-const cart = ref([]);
+const { items: cart, total: cartTotal, incItem, decItem, clearCart } = useCart();
 const addresses = ref([]);
 const addressId = ref(null);
 const remark = ref("");
@@ -80,32 +81,22 @@ const deliveryFee = computed(() => cart.value.length > 0 ? Number(merchant.value
 const actualAmount = computed(() => (totalPrice.value + deliveryFee.value).toFixed(2));
 const minPrice = computed(() => Number(merchant.value.min_delivery_price));
 
-function loadCart() {
-  try { cart.value = JSON.parse(localStorage.getItem("takeout_cart") || "[]"); }
-  catch { cart.value = []; }
-}
-function saveCart() { localStorage.setItem("takeout_cart", JSON.stringify(cart.value)); }
-
-function incItem(item) { item.quantity++; saveCart(); }
-function decItem(item) {
-  item.quantity--;
-  if (item.quantity <= 0) cart.value = cart.value.filter(i => i.dish_id !== item.dish_id);
-  saveCart();
-}
-
 onMounted(async () => {
-  loadCart();
   if (cart.value.length > 0) {
     try {
       const { data } = await getMerchant(cart.value[0].merchant_id);
       Object.assign(merchant.value, data);
-    } catch {}
+    } catch (e) {
+      console.error("加载商家信息失败:", e);
+    }
   }
   try {
     const { data } = await getAddresses();
     addresses.value = data;
     if (data.length) addressId.value = data.find(a => a.is_default)?.address_id || data[0].address_id;
-  } catch {}
+  } catch (e) {
+    console.error("加载地址失败:", e);
+  }
 });
 
 async function submitOrder() {
@@ -118,7 +109,7 @@ async function submitOrder() {
       items: cart.value.map(i => ({ dish_id: i.dish_id, quantity: i.quantity })),
       remark: remark.value,
     });
-    localStorage.removeItem("takeout_cart");
+    clearCart();
     router.push(`/order/${data.order_id}`);
   } catch (e) {
     error.value = e.response?.data?.error || "下单失败";

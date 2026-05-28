@@ -13,13 +13,9 @@ from models.review import get_by_order
 orders_bp = Blueprint("orders", __name__)
 
 
-def _get_customer():
-    return require_role("customer")
-
-
 @orders_bp.route("/api/orders", methods=["POST"])
 def place_order():
-    user_id, err = _get_customer()
+    user_id, err = require_role("customer")
     if err:
         return err
 
@@ -93,6 +89,18 @@ def get_order(order_id):
     if not order:
         return jsonify({"error": "订单不存在"}), 404
 
+    # 附加地址信息
+    addr = find_address(order["address_id"])
+    if addr:
+        order["address"] = {
+            "contact_name": addr["contact_name"],
+            "phone": addr["phone"],
+            "province": addr.get("province", ""),
+            "city": addr.get("city", ""),
+            "district": addr.get("district", ""),
+            "detail": addr["detail"],
+        }
+
     order["items"] = get_items(order_id)
     order["review"] = get_by_order(order_id)
     return jsonify(order)
@@ -100,7 +108,7 @@ def get_order(order_id):
 
 @orders_bp.route("/api/orders/<int:order_id>/pay", methods=["PUT"])
 def pay_order(order_id):
-    user_id, err = _get_customer()
+    user_id, err = require_role("customer")
     if err:
         return err
 
@@ -116,7 +124,7 @@ def pay_order(order_id):
 
 @orders_bp.route("/api/orders/<int:order_id>/cancel", methods=["PUT"])
 def cancel_order(order_id):
-    user_id, err = _get_customer()
+    user_id, err = require_role("customer")
     if err:
         return err
 
@@ -141,6 +149,8 @@ def merchant_orders():
 
     status = request.args.get("status", type=int)
     orders = list_by_merchant(merchant["merchant_id"], status)
+    for o in orders:
+        o["items"] = get_items(o["order_id"])
     return jsonify(orders)
 
 
@@ -161,6 +171,6 @@ def accept_order(order_id):
     if order["status"] != 2:
         return jsonify({"error": "只能接待接单状态的订单"}), 400
 
-    update_status(order_id, 6)
+    update_status(order_id, 6, accepted_at=datetime.now())
 
     return jsonify({"message": "已确认订单，等待骑手接单"})

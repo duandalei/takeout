@@ -35,10 +35,8 @@ export const getMe = () => api.get("/auth/me");
 // ---- 商家 ----
 export const getMerchants = () => api.get("/merchants");
 export const getMerchant = (id) => api.get(`/merchants/${id}`);
-export const getMerchantMenu = (id) => api.get(`/merchants/${id}/menu`);
 
 // ---- 菜品 ----
-export const getDish = (id) => api.get(`/dishes/${id}`);
 
 // ---- 地址 ----
 export const getAddresses = () => api.get("/addresses");
