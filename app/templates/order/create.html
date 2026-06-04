@@ -1,0 +1,127 @@
+<!-- 下单页面 -->
+{% extends "base.html" %}
+{% block title %}下单 - {{ restaurant.name }}{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <a href="{{ url_for('restaurant.detail', id=restaurant.restaurant_id) }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> 返回菜单
+    </a>
+</div>
+
+<h3><i class="bi bi-cart-plus"></i> 下单 — {{ restaurant.name }}</h3>
+
+<form method="post" id="order-form">
+    {{ form.hidden_tag() }}
+
+    <!-- 菜品选择 -->
+    <h5 class="mt-4 mb-3">选择菜品</h5>
+    <div class="row row-cols-1 row-cols-md-2 g-3 mb-4">
+        {% for item in items %}
+        <div class="col">
+            <div class="card item-card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">{{ item.name }}</h6>
+                            <small class="text-muted">{{ item.description[:40] if item.description else '' }}</small>
+                        </div>
+                        <span class="price ms-2">¥{{ '%.2f'|format(item.price) }}</span>
+                    </div>
+                    <div class="input-group input-group-sm mt-2" style="width:130px;">
+                        <button type="button" class="btn btn-outline-secondary btn-minus"
+                                data-id="{{ item.item_id }}">-</button>
+                        <input type="number" class="form-control text-center item-qty"
+                               data-id="{{ item.item_id }}" data-price="{{ item.price }}"
+                               value="0" min="0" max="99" readonly>
+                        <button type="button" class="btn btn-outline-secondary btn-plus"
+                                data-id="{{ item.item_id }}">+</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- 汇总 -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h5>订单汇总</h5>
+            <div id="cart-summary" class="text-muted mb-2">暂未选择菜品</div>
+            <h4 class="price">总计: ¥<span id="total-price">0.00</span></h4>
+        </div>
+    </div>
+
+    <!-- 配送信息 -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            {{ form.delivery_address.label(class="form-label") }}
+            {{ form.delivery_address(class="form-control",
+               value=current_user.address if current_user and current_user.address else '') }}
+        </div>
+        <div class="col-md-6">
+            {{ form.note.label(class="form-label") }}
+            {{ form.note(class="form-control", placeholder="特殊要求...") }}
+        </div>
+    </div>
+
+    <!-- 隐藏的购物车数据 -->
+    <input type="hidden" name="cart_data" id="cart-data" value="{}">
+
+    <button type="submit" class="btn btn-danger btn-lg">
+        <i class="bi bi-check-lg"></i> 提交订单
+    </button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    const cart = {};
+    const summaryEl = document.getElementById('cart-summary');
+    const totalEl = document.getElementById('total-price');
+    const cartDataEl = document.getElementById('cart-data');
+
+    function updateCart() {
+        let total = 0;
+        let summary = '';
+        let hasItems = false;
+
+        document.querySelectorAll('.item-qty').forEach(input => {
+            const qty = parseInt(input.value) || 0;
+            const id = input.dataset.id;
+            const price = parseFloat(input.dataset.price);
+            if (qty > 0) {
+                cart[id] = qty;
+                total += qty * price;
+                const name = input.closest('.card').querySelector('.card-title').textContent;
+                summary += `<div>${name} x${qty} = ¥${(qty * price).toFixed(2)}</div>`;
+                hasItems = true;
+            } else {
+                delete cart[id];
+            }
+        });
+
+        summaryEl.innerHTML = hasItems ? summary : '暂未选择菜品';
+        totalEl.textContent = total.toFixed(2);
+        cartDataEl.value = JSON.stringify(cart);
+    }
+
+    document.querySelectorAll('.btn-plus').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const input = document.querySelector(`.item-qty[data-id="${btn.dataset.id}"]`);
+            input.value = Math.min(99, (parseInt(input.value) || 0) + 1);
+            updateCart();
+        });
+    });
+
+    document.querySelectorAll('.btn-minus').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const input = document.querySelector(`.item-qty[data-id="${btn.dataset.id}"]`);
+            input.value = Math.max(0, (parseInt(input.value) || 0) - 1);
+            updateCart();
+        });
+    });
+})();
+</script>
+{% endblock %}

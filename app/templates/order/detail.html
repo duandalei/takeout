@@ -1,0 +1,102 @@
+<!-- 订单详情 -->
+{% extends "base.html" %}
+{% block title %}订单 #{{ order.order_id }} - 外卖管理系统{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <a href="{{ url_for('order.my_orders') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> 返回
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card shadow-sm mb-3">
+            <div class="card-header d-flex justify-content-between">
+                <strong>订单 #{{ order.order_id }}</strong>
+                <span class="order-status status-{{ order.status }}">{{ order.status }}</span>
+            </div>
+            <div class="list-group list-group-flush">
+                {% for oi in order.order_items %}
+                <div class="list-group-item d-flex justify-content-between">
+                    <span>{{ oi.menu_item.name }} x{{ oi.quantity }}</span>
+                    <span>¥{{ '%.2f'|format(oi.unit_price * oi.quantity) }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="card-footer text-end">
+                <strong class="price">总计: ¥{{ '%.2f'|format(order.total_amount) }}</strong>
+            </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="mb-3">
+            {% if current_user.role == 'merchant' %}
+                {% if order.status == 'pending' %}
+                <a href="{{ url_for('order.action', id=order.order_id, action='confirm') }}"
+                   class="btn btn-success"><i class="bi bi-check-lg"></i> 接单</a>
+                {% endif %}
+                {% if order.status == 'confirmed' %}
+                <a href="{{ url_for('order.action', id=order.order_id, action='prepare') }}"
+                   class="btn btn-info"><i class="bi bi-fire"></i> 开始备餐</a>
+                {% endif %}
+                {% if order.status == 'preparing' %}
+                <a href="{{ url_for('order.action', id=order.order_id, action='ready') }}"
+                   class="btn btn-warning"><i class="bi bi-box-arrow-up"></i> 备好待取</a>
+                {% endif %}
+                {% if order.status in ('pending','confirmed') %}
+                <a href="{{ url_for('order.action', id=order.order_id, action='cancel') }}"
+                   class="btn btn-outline-danger"
+                   onclick="return confirm('确定取消？')"><i class="bi bi-x-lg"></i> 取消订单</a>
+                {% endif %}
+            {% endif %}
+
+            {% if current_user.role == 'customer' and order.status in ('pending','confirmed') %}
+            <a href="{{ url_for('order.action', id=order.order_id, action='cancel') }}"
+               class="btn btn-outline-danger"
+               onclick="return confirm('确定取消？')"><i class="bi bi-x-lg"></i> 取消订单</a>
+            {% endif %}
+
+            {% if current_user.role == 'customer' and order.status == 'delivered' and not order.review %}
+            <a href="{{ url_for('order.review', id=order.order_id) }}"
+               class="btn btn-warning"><i class="bi bi-star"></i> 评价</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card shadow-sm mb-3">
+            <div class="card-header"><strong>订单信息</strong></div>
+            <div class="card-body small">
+                <p><strong>商家:</strong> {{ order.restaurant.name if order.restaurant else '-' }}</p>
+                <p><strong>配送地址:</strong> {{ order.delivery_address }}</p>
+                <p><strong>顾客:</strong> {{ order.customer.real_name if order.customer else '-' }}</p>
+                <p><strong>骑手:</strong> {{ order.rider.real_name if order.rider else '未分配' }}</p>
+                <p><strong>备注:</strong> {{ order.note or '无' }}</p>
+                <p><strong>下单时间:</strong> {{ order.created_at.strftime('%Y-%m-%d %H:%M') if order.created_at else '' }}</p>
+                {% if order.delivery %}
+                <hr>
+                <p><strong>配送状态:</strong>
+                    <span class="delivery-status status-{{ order.delivery.status }}">
+                        {{ order.delivery.status }}
+                    </span>
+                </p>
+                {% if order.delivery.pickup_time %}
+                <p><strong>取餐时间:</strong> {{ order.delivery.pickup_time.strftime('%m-%d %H:%M') }}</p>
+                {% endif %}
+                {% if order.delivery.delivery_time %}
+                <p><strong>送达时间:</strong> {{ order.delivery.delivery_time.strftime('%m-%d %H:%M') }}</p>
+                {% endif %}
+                {% endif %}
+                {% if order.review %}
+                <hr>
+                <p><strong>评价:</strong>
+                    <span class="rating-stars">{{ '★' * order.review.rating }}{{ '☆' * (5 - order.review.rating) }}</span>
+                </p>
+                <p class="text-muted">{{ order.review.comment or '无内容' }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

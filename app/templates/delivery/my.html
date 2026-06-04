@@ -1,0 +1,54 @@
+<!-- 骑手 - 我的配送 -->
+{% extends "base.html" %}
+{% block title %}我的配送 - 外卖管理系统{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-list-check"></i> 我的配送</h2>
+
+{% if deliveries %}
+<div class="row">
+    {% for d in deliveries %}
+    <div class="col-md-6 col-lg-4 mb-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h5>配送 #{{ d.delivery_id }}</h5>
+                <span class="delivery-status status-{{ d.status }}">
+                    {% if d.status == 'assigned' %}待取餐
+                    {% elif d.status == 'picked_up' %}已取餐
+                    {% elif d.status == 'delivered' %}已送达
+                    {% else %}{{ d.status }}
+                    {% endif %}
+                </span>
+                <hr>
+                {% if d.order %}
+                <p><i class="bi bi-shop"></i> {{ d.order.restaurant.name }}</p>
+                <p><i class="bi bi-box-arrow-up"></i> 取餐: {{ d.order.restaurant.address[:25] }}</p>
+                <p><i class="bi bi-geo-alt text-danger"></i> 送达: {{ d.order.delivery_address[:25] }}</p>
+                <p class="price">¥{{ '%.2f'|format(d.order.total_amount) }}</p>
+                {% endif %}
+                {% if d.pickup_time %}
+                <p class="small text-muted">取餐: {{ d.pickup_time.strftime('%m-%d %H:%M') }}</p>
+                {% endif %}
+                {% if d.delivery_time %}
+                <p class="small text-muted">送达: {{ d.delivery_time.strftime('%m-%d %H:%M') }}</p>
+                {% endif %}
+
+                {% if d.status == 'assigned' %}
+                <a href="{{ url_for('delivery.pickup', delivery_id=d.delivery_id) }}"
+                   class="btn btn-info btn-sm w-100"><i class="bi bi-box-arrow-in-down"></i> 确认取餐</a>
+                {% elif d.status == 'picked_up' %}
+                <a href="{{ url_for('delivery.deliver', delivery_id=d.delivery_id) }}"
+                   class="btn btn-success btn-sm w-100"><i class="bi bi-check-lg"></i> 确认送达</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-5">
+    <i class="bi bi-inbox display-1 text-muted"></i>
+    <p class="text-muted mt-3">暂无配送记录</p>
+</div>
+{% endif %}
+{% endblock %}

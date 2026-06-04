@@ -1,0 +1,52 @@
+<!-- 订单列表 -->
+{% extends "base.html" %}
+{% block title %}我的订单 - 外卖管理系统{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-receipt"></i> 订单列表</h2>
+
+{% if orders %}
+<div class="row">
+    {% for order in orders %}
+    <div class="col-md-6 col-lg-4 mb-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="fw-bold">#{{ order.order_id }}</span>
+                    <span class="order-status status-{{ order.status }}">{{ order.status }}</span>
+                </div>
+                <p class="small mb-1">
+                    <i class="bi bi-shop text-primary"></i>
+                    {{ order.restaurant.name if order.restaurant else '未知' }}
+                </p>
+                <p class="small mb-1">
+                    <i class="bi bi-geo-alt text-danger"></i> {{ order.delivery_address[:30] }}
+                </p>
+                <p class="price mb-1">¥{{ '%.2f'|format(order.total_amount) }}</p>
+                <p class="text-muted small mb-2">
+                    {{ order.created_at.strftime('%m-%d %H:%M') if order.created_at else '' }}
+                </p>
+
+                <!-- 订单菜品预览 -->
+                <div class="small text-muted mb-2">
+                    {% set items = order.order_items|list %}
+                    {% for oi in items[:3] %}
+                    {{ oi.menu_item.name }} x{{ oi.quantity }}{% if not loop.last %}、{% endif %}
+                    {% endfor %}
+                    {% if items|length > 3 %}...{% endif %}
+                </div>
+
+                <a href="{{ url_for('order.detail', id=order.order_id) }}"
+                   class="btn btn-outline-primary btn-sm w-100">查看详情</a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-5">
+    <i class="bi bi-inbox display-1 text-muted"></i>
+    <p class="text-muted mt-3">暂无订单</p>
+</div>
+{% endif %}
+{% endblock %}

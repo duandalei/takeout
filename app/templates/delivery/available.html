@@ -1,0 +1,37 @@
+<!-- 骑手 - 待接配送 -->
+{% extends "base.html" %}
+{% block title %}待接配送 - 外卖管理系统{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-truck"></i> 待接配送订单</h2>
+
+{% if orders %}
+<div class="row">
+    {% for order in orders %}
+    <div class="col-md-6 col-lg-4 mb-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h5>订单 #{{ order.order_id }}</h5>
+                <span class="order-status status-{{ order.status }}">{{ order.status }}</span>
+                <hr>
+                <p><i class="bi bi-shop"></i> {{ order.restaurant.name }}</p>
+                <p><i class="bi bi-box-arrow-up"></i> 取餐地址: {{ order.restaurant.address[:30] }}</p>
+                <p><i class="bi bi-geo-alt text-danger"></i> {{ order.delivery_address[:30] }}</p>
+                <p class="price">¥{{ '%.2f'|format(order.total_amount) }}</p>
+                <a href="{{ url_for('delivery.accept', order_id=order.order_id) }}"
+                   class="btn btn-success w-100"
+                   onclick="return confirm('确定接此订单？')">
+                    <i class="bi bi-check-lg"></i> 接单
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-5">
+    <i class="bi bi-inbox display-1 text-muted"></i>
+    <p class="text-muted mt-3">暂无待配送订单</p>
+</div>
+{% endif %}
+{% endblock %}

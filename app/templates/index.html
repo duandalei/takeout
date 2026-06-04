@@ -1,0 +1,102 @@
+<!-- 首页 -->
+{% extends "base.html" %}
+{% block title %}外卖管理系统 - 首页{% endblock %}
+
+{% block content %}
+<div class="px-4 py-5 my-5 text-center bg-light rounded-3 shadow-sm">
+    <i class="bi bi-basket2-fill display-1 text-primary"></i>
+    <h1 class="display-5 fw-bold mt-3">外卖管理系统</h1>
+    <p class="lead mb-4">
+        数据库课程设计项目 — 基于 SQL Server + Flask 实现
+    </p>
+    {% if not current_user %}
+    <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+        <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-lg px-4 gap-3">
+            <i class="bi bi-person"></i> 登录
+        </a>
+        <a href="{{ url_for('auth.register') }}" class="btn btn-outline-secondary btn-lg px-4">
+            <i class="bi bi-person-plus"></i> 注册
+        </a>
+    </div>
+    {% else %}
+    <div class="row g-4 py-3 row-cols-1 row-cols-lg-3">
+        {% if current_user.role in ('customer','') %}
+        <div class="col">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <i class="bi bi-shop display-5 text-primary"></i>
+                    <h5 class="card-title mt-2">浏览商家</h5>
+                    <p class="card-text">查看所有营业中的商家和菜品</p>
+                    <a href="{{ url_for('restaurant.list_restaurants') }}" class="btn btn-primary">去看看</a>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <i class="bi bi-receipt display-5 text-success"></i>
+                    <h5 class="card-title mt-2">我的订单</h5>
+                    <p class="card-text">查看订单状态和历史记录</p>
+                    <a href="{{ url_for('order.my_orders') }}" class="btn btn-success">去查看</a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% if current_user.role == 'merchant' %}
+        <div class="col">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <i class="bi bi-building display-5 text-danger"></i>
+                    <h5 class="card-title mt-2">店铺管理</h5>
+                    <p class="card-text">管理您的店铺和菜品</p>
+                    <a href="{{ url_for('restaurant.my_restaurant') }}" class="btn btn-danger">去管理</a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% if current_user.role == 'rider' %}
+        <div class="col">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <i class="bi bi-truck display-5 text-warning"></i>
+                    <h5 class="card-title mt-2">待接配送</h5>
+                    <p class="card-text">查看待配送的订单</p>
+                    <a href="{{ url_for('delivery.available_orders') }}" class="btn btn-warning">去接单</a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body text-center">
+                <i class="bi bi-people-fill display-4 text-info"></i>
+                <h5 class="mt-2">用户管理</h5>
+                <p>顾客 / 商家 / 骑手 / 管理员</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body text-center">
+                <i class="bi bi-cart-check-fill display-4 text-warning"></i>
+                <h5 class="mt-2">订单管理</h5>
+                <p>下单 / 接单 / 状态跟踪</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body text-center">
+                <i class="bi bi-truck display-4 text-success"></i>
+                <h5 class="mt-2">配送管理</h5>
+                <p>骑手接单 / 取餐 / 送达</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,24 @@
+<!-- 添加菜品分类 -->
+{% extends "base.html" %}
+{% block title %}{{ action }}分类{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card shadow">
+            <div class="card-body p-4">
+                <h3><i class="bi bi-folder-plus"></i> {{ action }}分类</h3>
+                <form method="post">
+                    {{ form.hidden_tag() }}
+                    <div class="mb-3">
+                        {{ form.name.label(class="form-label") }}
+                        {{ form.name(class="form-control", placeholder="例如：招牌热菜") }}
+                    </div>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> 保存</button>
+                    <a href="{{ url_for('restaurant.my_restaurant') }}" class="btn btn-outline-secondary">取消</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
