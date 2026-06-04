@@ -35,7 +35,7 @@
 
 ```bash
 conda activate takeout
-pip install -r requirements.txt
+pip install Flask>=3.0 Flask-SQLAlchemy>=3.0 Flask-WTF>=1.2 pyodbc>=5.0 SQLAlchemy>=2.0 Werkzeug>=3.0
 ```
 
 ### 3. 配置数据库连接
@@ -102,8 +102,7 @@ takeout/
 │   ├── er_diagram.md            # Mermaid E-R 图
 │   └── user_manual.md           # 用户使用手册
 ├── run.py                       # 启动入口
-├── start.bat                    # Windows 一键启动
-└── requirements.txt             # Python 依赖
+└── start.bat                    # Windows 一键启动
 ```
 
 ## 数据库 E-R 概览

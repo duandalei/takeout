@@ -13,7 +13,7 @@
 ```bash
 conda activate takeout
 cd C:\Users\段大磊\Desktop\takeout
-pip install -r requirements.txt
+pip install Flask>=3.0 Flask-SQLAlchemy>=3.0 Flask-WTF>=1.2 pyodbc>=5.0 SQLAlchemy>=2.0 Werkzeug>=3.0
 ```
 
 ### 1.3 数据库配置
