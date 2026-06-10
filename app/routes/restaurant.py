@@ -1,15 +1,16 @@
-"""商家路由: 列表 / 详情 / 创建 / 编辑 / 上下线"""
+"""Restaurant routes: list / detail / create / edit / toggle status."""
 
-from flask import Blueprint, render_template, redirect, url_for, flash, request, session
+from flask import Blueprint, render_template, redirect, url_for, flash, request, session, g
 from app.models import db, Restaurant, MenuCategory, MenuItem
 from app.forms import RestaurantForm, MenuCategoryForm, MenuItemForm
 from app.routes.auth import login_required, role_required
+from app.domain.auth import require
 
 restaurant_bp = Blueprint('restaurant', __name__)
 
 
 # ============================================================
-# 浏览所有营业中的商家
+# Browse all open restaurants
 # ============================================================
 @restaurant_bp.route('/')
 def list_restaurants():
@@ -25,7 +26,7 @@ def list_restaurants():
 
 
 # ============================================================
-# 商家详情 + 菜单
+# Restaurant detail + menu
 # ============================================================
 @restaurant_bp.route('/<int:id>')
 def detail(id):
@@ -42,16 +43,12 @@ def detail(id):
 
 
 # ============================================================
-# 我的店铺 (商家专用)
+# My restaurant (merchant only)
 # ============================================================
 @restaurant_bp.route('/my')
-@login_required
-@role_required('merchant')
+@require(role='merchant', owns='restaurant')
 def my_restaurant():
-    restaurant = Restaurant.query.filter_by(owner_id=session['user_id']).first()
-    if not restaurant:
-        flash('您还没有创建店铺，请先创建', 'info')
-        return redirect(url_for('restaurant.create'))
+    restaurant = g.current_restaurant
     categories = (
         MenuCategory.query
         .filter_by(restaurant_id=restaurant.restaurant_id)
@@ -64,7 +61,7 @@ def my_restaurant():
 
 
 # ============================================================
-# 创建店铺
+# Create restaurant
 # ============================================================
 @restaurant_bp.route('/create', methods=['GET', 'POST'])
 @login_required
@@ -94,16 +91,12 @@ def create():
 
 
 # ============================================================
-# 编辑店铺
+# Edit restaurant
 # ============================================================
 @restaurant_bp.route('/edit', methods=['GET', 'POST'])
-@login_required
-@role_required('merchant')
+@require(role='merchant', owns='restaurant')
 def edit():
-    restaurant = Restaurant.query.filter_by(owner_id=session['user_id']).first()
-    if not restaurant:
-        flash('请先创建店铺', 'warning')
-        return redirect(url_for('restaurant.create'))
+    restaurant = g.current_restaurant
 
     form = RestaurantForm(obj=restaurant)
     if form.validate_on_submit():
@@ -119,17 +112,12 @@ def edit():
 
 
 # ============================================================
-# 切换店铺状态 (营业/歇业)
+# Toggle restaurant status (open/closed)
 # ============================================================
 @restaurant_bp.route('/toggle-status')
-@login_required
-@role_required('merchant')
+@require(role='merchant', owns='restaurant')
 def toggle_status():
-    restaurant = Restaurant.query.filter_by(owner_id=session['user_id']).first()
-    if not restaurant:
-        flash('请先创建店铺', 'warning')
-        return redirect(url_for('restaurant.create'))
-
+    restaurant = g.current_restaurant
     restaurant.status = 'closed' if restaurant.status == 'open' else 'open'
     db.session.commit()
     flash(f'店铺已{"歇业" if restaurant.status == "closed" else "恢复营业"}', 'info')
@@ -137,16 +125,12 @@ def toggle_status():
 
 
 # ============================================================
-# 添加菜品分类
+# Add menu category
 # ============================================================
 @restaurant_bp.route('/category/add', methods=['GET', 'POST'])
-@login_required
-@role_required('merchant')
+@require(role='merchant', owns='restaurant')
 def add_category():
-    restaurant = Restaurant.query.filter_by(owner_id=session['user_id']).first()
-    if not restaurant:
-        flash('请先创建店铺', 'warning')
-        return redirect(url_for('restaurant.create'))
+    restaurant = g.current_restaurant
 
     form = MenuCategoryForm()
     if form.validate_on_submit():

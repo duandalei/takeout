@@ -1,56 +1,56 @@
-"""配送路由: 待接订单 / 接单 / 取餐 / 送达"""
+"""Delivery routes: available orders / accept / pickup / deliver.
 
-from datetime import datetime
+Now operates on Orders directly — the old Delivery table has been
+collapsed into Orders (rider_id, pickup_time, delivery_time columns).
+All state transitions delegate to OrderState.
+"""
+
 from flask import Blueprint, render_template, redirect, url_for, flash, session
-from app.models import db, Order, Delivery, Restaurant
+from app.models import db, Order
 from app.routes.auth import login_required, role_required
+from app.domain.order_state import OrderState
 
 delivery_bp = Blueprint('delivery', __name__)
 
 
+def _actor():
+    return {'user_id': session.get('user_id'), 'role': session.get('role')}
+
+
 # ============================================================
-# 待接配送订单列表 (骑手视角)
+# Available orders for riders to accept
 # ============================================================
 @delivery_bp.route('/available')
 @login_required
 @role_required('rider')
 def available_orders():
-    # 状态为 delivering (商家已备好) 且无骑手接单的订单
     orders = (
         Order.query
-        .filter_by(status='delivering', rider_id=None)
+        .filter_by(status='ready', rider_id=None)
         .order_by(Order.created_at.asc())
         .all()
     )
-    return render_template('delivery/available.html', orders=orders)
+    return render_template('delivery/available.html', orders=orders,
+                           OrderState=OrderState)
 
 
 # ============================================================
-# 骑手接单
+# Rider accepts an order
 # ============================================================
 @delivery_bp.route('/accept/<int:order_id>')
 @login_required
 @role_required('rider')
 def accept(order_id):
     order = Order.query.get_or_404(order_id)
+    actor = _actor()
 
-    if order.status != 'delivering':
-        flash('此订单当前不可接单', 'warning')
-        return redirect(url_for('delivery.available_orders'))
-    if order.rider_id is not None:
-        flash('此订单已被其他骑手接单', 'warning')
+    result = OrderState.transition(order, 'assign', actor)
+    if not result.ok:
+        flash(result.error, 'warning')
         return redirect(url_for('delivery.available_orders'))
 
-    # 分配骑手
+    order.status = result.new_status
     order.rider_id = session['user_id']
-
-    # 创建配送记录
-    delivery = Delivery(
-        order_id=order_id,
-        rider_id=session['user_id'],
-        status='assigned',
-    )
-    db.session.add(delivery)
     db.session.commit()
 
     flash('接单成功！', 'success')
@@ -58,39 +58,41 @@ def accept(order_id):
 
 
 # ============================================================
-# 我的配送
+# Rider's deliveries (orders they're assigned to)
 # ============================================================
 @delivery_bp.route('/my')
 @login_required
 @role_required('rider')
 def my_deliveries():
-    deliveries = (
-        Delivery.query
-        .filter_by(rider_id=session['user_id'])
-        .order_by(Delivery.pickup_time.asc(),
-                  Delivery.delivery_id.desc())
+    orders = (
+        Order.query
+        .filter(Order.rider_id == session['user_id'])
+        .filter(Order.status.in_(['assigned', 'picked_up', 'delivered']))
+        .order_by(Order.pickup_time.asc(), Order.order_id.desc())
         .all()
     )
-    return render_template('delivery/my.html', deliveries=deliveries)
+    return render_template('delivery/my.html', orders=orders,
+                           OrderState=OrderState)
 
 
 # ============================================================
-# 取餐
+# Rider picks up the order
 # ============================================================
-@delivery_bp.route('/pickup/<int:delivery_id>')
+@delivery_bp.route('/pickup/<int:order_id>')
 @login_required
 @role_required('rider')
-def pickup(delivery_id):
-    delivery = Delivery.query.get_or_404(delivery_id)
-    if delivery.rider_id != session['user_id']:
-        flash('无权操作', 'danger')
-        return redirect(url_for('delivery.my_deliveries'))
-    if delivery.status != 'assigned':
-        flash('当前状态不可取餐', 'warning')
+def pickup(order_id):
+    order = Order.query.get_or_404(order_id)
+    actor = _actor()
+
+    result = OrderState.transition(order, 'pickup', actor)
+    if not result.ok:
+        flash(result.error, 'warning')
         return redirect(url_for('delivery.my_deliveries'))
 
-    delivery.status = 'picked_up'
-    delivery.pickup_time = datetime.utcnow()
+    from datetime import datetime
+    order.status = result.new_status
+    order.pickup_time = datetime.utcnow()
     db.session.commit()
 
     flash('已取餐，请尽快送达', 'success')
@@ -98,26 +100,23 @@ def pickup(delivery_id):
 
 
 # ============================================================
-# 送达
+# Rider delivers the order
 # ============================================================
-@delivery_bp.route('/deliver/<int:delivery_id>')
+@delivery_bp.route('/deliver/<int:order_id>')
 @login_required
 @role_required('rider')
-def deliver(delivery_id):
-    delivery = Delivery.query.get_or_404(delivery_id)
-    if delivery.rider_id != session['user_id']:
-        flash('无权操作', 'danger')
-        return redirect(url_for('delivery.my_deliveries'))
-    if delivery.status != 'picked_up':
-        flash('请先取餐', 'warning')
+def deliver(order_id):
+    order = Order.query.get_or_404(order_id)
+    actor = _actor()
+
+    result = OrderState.transition(order, 'deliver', actor)
+    if not result.ok:
+        flash(result.error, 'warning')
         return redirect(url_for('delivery.my_deliveries'))
 
-    delivery.status = 'delivered'
-    delivery.delivery_time = datetime.utcnow()
-
-    # 同步更新订单状态
-    order = delivery.order
-    order.status = 'delivered'
+    from datetime import datetime
+    order.status = result.new_status
+    order.delivery_time = datetime.utcnow()
     db.session.commit()
 
     flash('已送达！', 'success')

@@ -20,43 +20,36 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="/"><i class="bi bi-house"></i> 首页</a>
+                        <a class="nav-link {% if request.endpoint == 'home' %}active{% endif %}" href="/"><i class="bi bi-house"></i> 首页</a>
                     </li>
                     {% if current_user and current_user.role in ('customer','') %}
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('restaurant.list_restaurants') }}">
+                        <a class="nav-link {% if request.endpoint == 'restaurant.list_restaurants' %}active{% endif %}" href="{{ url_for('restaurant.list_restaurants') }}">
                             <i class="bi bi-shop"></i> 商家浏览
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('order.my_orders') }}">
+                        <a class="nav-link {% if request.endpoint == 'order.my_orders' %}active{% endif %}" href="{{ url_for('order.my_orders') }}">
                             <i class="bi bi-receipt"></i> 我的订单
                         </a>
                     </li>
                     {% endif %}
                     {% if current_user and current_user.role == 'merchant' %}
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('restaurant.my_restaurant') }}">
+                        <a class="nav-link {% if request.endpoint == 'restaurant.my_restaurant' %}active{% endif %}" href="{{ url_for('restaurant.my_restaurant') }}">
                             <i class="bi bi-building"></i> 我的店铺
                         </a>
                     </li>
                     {% endif %}
                     {% if current_user and current_user.role == 'rider' %}
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('delivery.available_orders') }}">
+                        <a class="nav-link {% if request.endpoint == 'delivery.available_orders' %}active{% endif %}" href="{{ url_for('delivery.available_orders') }}">
                             <i class="bi bi-truck"></i> 待接配送
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('delivery.my_deliveries') }}">
+                        <a class="nav-link {% if request.endpoint == 'delivery.my_deliveries' %}active{% endif %}" href="{{ url_for('delivery.my_deliveries') }}">
                             <i class="bi bi-list-check"></i> 我的配送
-                        </a>
-                    </li>
-                    {% endif %}
-                    {% if current_user and current_user.role == 'admin' %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('restaurant.list_restaurants') }}">
-                            <i class="bi bi-gear"></i> 管理面板
                         </a>
                     </li>
                     {% endif %}
@@ -76,12 +69,12 @@
                     </li>
                     {% else %}
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('auth.login') }}">
+                        <a class="nav-link {% if request.endpoint == 'auth.login' %}active{% endif %}" href="{{ url_for('auth.login') }}">
                             <i class="bi bi-person"></i> 登录
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('auth.register') }}">
+                        <a class="nav-link {% if request.endpoint == 'auth.register' %}active{% endif %}" href="{{ url_for('auth.register') }}">
                             <i class="bi bi-person-plus"></i> 注册
                         </a>
                     </li>
@@ -106,9 +99,9 @@
         {% block content %}{% endblock %}
     </main>
 
-    <footer class="bg-light text-center text-muted py-3 mt-5 border-top">
+    <footer class="text-center text-muted py-3 mt-5 border-top">
         <div class="container">
-            <small>外卖管理系统 &copy; 2025 — 数据库课程设计项目</small>
+            <small>{% if request.endpoint == 'home' %}外卖管理系统 — 数据库课程设计项目{% else %}外卖管理系统{% endif %}</small>
         </div>
     </footer>
 

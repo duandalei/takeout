@@ -12,7 +12,7 @@
         <div class="card shadow-sm h-100">
             <div class="card-body">
                 <h5>订单 #{{ order.order_id }}</h5>
-                <span class="order-status status-{{ order.status }}">{{ order.status }}</span>
+                <span class="order-status status-{{ order.status }}">{{ OrderState.status_label(order.status) }}</span>
                 <hr>
                 <p><i class="bi bi-shop"></i> {{ order.restaurant.name }}</p>
                 <p><i class="bi bi-box-arrow-up"></i> 取餐地址: {{ order.restaurant.address[:30] }}</p>

@@ -1,32 +1,30 @@
-"""菜单路由: 菜品 CRUD / 上下架"""
+"""Menu routes: menu item CRUD / toggle status."""
 
 from flask import Blueprint, render_template, redirect, url_for, flash, session
 from app.models import db, Restaurant, MenuCategory, MenuItem
 from app.forms import MenuItemForm
-from app.routes.auth import login_required, role_required
+from app.domain.auth import require
 
 menu_bp = Blueprint('menu', __name__)
 
 
-def _get_merchant_restaurant():
-    """获取当前商家用户的店铺，无则返回 None"""
+def _current_restaurant():
+    """Resolve the current merchant user's restaurant."""
     return Restaurant.query.filter_by(owner_id=session['user_id']).first()
 
 
 # ============================================================
-# 添加菜品
+# Add menu item
 # ============================================================
 @menu_bp.route('/add', methods=['GET', 'POST'])
-@login_required
-@role_required('merchant')
+@require(role='merchant')
 def add():
-    restaurant = _get_merchant_restaurant()
+    restaurant = _current_restaurant()
     if not restaurant:
         flash('请先创建店铺', 'warning')
         return redirect(url_for('restaurant.create'))
 
     form = MenuItemForm()
-    # 动态加载该商家分类
     form.category_id.choices = [
         (c.category_id, c.name)
         for c in MenuCategory.query
@@ -52,13 +50,12 @@ def add():
 
 
 # ============================================================
-# 编辑菜品
+# Edit menu item
 # ============================================================
 @menu_bp.route('/edit/<int:id>', methods=['GET', 'POST'])
-@login_required
-@role_required('merchant')
+@require(role='merchant')
 def edit(id):
-    restaurant = _get_merchant_restaurant()
+    restaurant = _current_restaurant()
     if not restaurant:
         flash('请先创建店铺', 'warning')
         return redirect(url_for('restaurant.create'))
@@ -90,13 +87,12 @@ def edit(id):
 
 
 # ============================================================
-# 删除菜品
+# Delete menu item
 # ============================================================
 @menu_bp.route('/delete/<int:id>')
-@login_required
-@role_required('merchant')
+@require(role='merchant')
 def delete(id):
-    restaurant = _get_merchant_restaurant()
+    restaurant = _current_restaurant()
     if not restaurant:
         flash('请先创建店铺', 'warning')
         return redirect(url_for('restaurant.create'))
@@ -113,13 +109,12 @@ def delete(id):
 
 
 # ============================================================
-# 切换菜品状态 (上下架)
+# Toggle menu item status (available/unavailable)
 # ============================================================
 @menu_bp.route('/toggle/<int:id>')
-@login_required
-@role_required('merchant')
+@require(role='merchant')
 def toggle(id):
-    restaurant = _get_merchant_restaurant()
+    restaurant = _current_restaurant()
     if not restaurant:
         flash('请先创建店铺', 'warning')
         return redirect(url_for('restaurant.create'))

@@ -2,7 +2,7 @@
 
 ### Issue tracker
 
-Issues 存放在 GitHub issues 上：`duandalei/Class-Management-System`。详见 `docs/agents/issue-tracker.md`。
+Issues 存放在 GitHub issues 上：`duandalei/takeout`。详见 `docs/agents/issue-tracker.md`。
 
 ### Triage labels
 

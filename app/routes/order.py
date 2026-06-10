@@ -1,16 +1,24 @@
-"""订单路由: 下单 / 我的订单 / 接单 / 状态流转 / 评价"""
+"""Order routes: create / list / detail / state transitions / review."""
 
 import json
+from decimal import Decimal
 from flask import Blueprint, render_template, redirect, url_for, flash, session, request
-from app.models import db, Order, OrderItem, MenuItem, Restaurant, Delivery, Review
+from app.models import db, Order, OrderItem, MenuItem, Restaurant, Review
 from app.forms import OrderForm, ReviewForm
 from app.routes.auth import login_required, role_required
+from flask import current_app
+from app.domain.order_state import OrderState
 
 order_bp = Blueprint('order', __name__)
 
 
+def _actor():
+    """Build actor dict from session for OrderState.transition()."""
+    return {'user_id': session.get('user_id'), 'role': session.get('role')}
+
+
 # ============================================================
-# 从商家详情页下单
+# Create order from restaurant detail page
 # ============================================================
 @order_bp.route('/create/<int:restaurant_id>', methods=['GET', 'POST'])
 @login_required
@@ -21,7 +29,6 @@ def create(restaurant_id):
         flash('该商家已歇业', 'warning')
         return redirect(url_for('restaurant.list_restaurants'))
 
-    # 获取该商家所有在售菜品
     items = (
         MenuItem.query
         .filter_by(restaurant_id=restaurant_id, status='available')
@@ -30,8 +37,10 @@ def create(restaurant_id):
     )
 
     form = OrderForm()
+    # Populate restaurant_id so DataRequired validator passes
+    if request.method == 'GET':
+        form.restaurant_id.data = restaurant_id
     if form.validate_on_submit():
-        # 从表单获取购物车数据 (JSON: {item_id: quantity})
         cart_json = request.form.get('cart_data', '{}')
         try:
             cart = json.loads(cart_json)
@@ -42,7 +51,6 @@ def create(restaurant_id):
             flash('请至少选择一个菜品', 'warning')
             return redirect(url_for('order.create', restaurant_id=restaurant_id))
 
-        # 计算订单总金额并建立订单明细
         total = 0
         order_items = []
         for item_id_str, qty_str in cart.items():
@@ -63,19 +71,22 @@ def create(restaurant_id):
             flash('购物车为空', 'warning')
             return redirect(url_for('order.create', restaurant_id=restaurant_id))
 
+        delivery_fee = Decimal(str(current_app.config.get('DELIVERY_FEE', '5.00')))
+
         order = Order(
             customer_id=session['user_id'],
             restaurant_id=restaurant_id,
             delivery_address=form.delivery_address.data,
             status='pending',
-            total_amount=total,
+            total_amount=total + delivery_fee,
+            delivery_fee=delivery_fee,
             note=form.note.data or None,
         )
         order.order_items = order_items
         db.session.add(order)
         db.session.commit()
 
-        flash(f'订单已提交！总计 ¥{total:.2f}', 'success')
+        flash(f'订单已提交！总计 ¥{total + delivery_fee:.2f} (含配送费 ¥{delivery_fee:.2f})', 'success')
         return redirect(url_for('order.my_orders'))
 
     return render_template('order/create.html',
@@ -85,124 +96,119 @@ def create(restaurant_id):
 
 
 # ============================================================
-# 我的订单 (不同角色看到不同内容)
+# My orders (role-filtered, optional status filter)
 # ============================================================
+
+STATUS_GROUPS = {
+    'pending':   ['pending', 'confirmed'],
+    'active':    ['preparing', 'ready', 'assigned', 'picked_up'],
+    'completed': ['delivered'],
+    'cancelled': ['cancelled'],
+}
+
+STATUS_TABS = [
+    ('all',       '全部'),
+    ('pending',   '待处理'),
+    ('active',    '进行中'),
+    ('completed', '已完成'),
+    ('cancelled', '已取消'),
+]
+
+
 @order_bp.route('/my')
 @login_required
 def my_orders():
     user_id = session['user_id']
     role = session['role']
+    status = request.args.get('status', 'all')
 
     if role == 'customer':
-        orders = (
+        query = (
             Order.query
             .filter_by(customer_id=user_id)
-            .order_by(Order.created_at.desc())
-            .all()
         )
     elif role == 'merchant':
         restaurant = Restaurant.query.filter_by(owner_id=user_id).first()
         if not restaurant:
-            orders = []
-        else:
-            orders = (
-                Order.query
-                .filter_by(restaurant_id=restaurant.restaurant_id)
-                .order_by(Order.created_at.desc())
-                .all()
-            )
+            return render_template('order/list.html', orders=[],
+                                   status_tabs=STATUS_TABS,
+                                   current_status=status,
+                                   OrderState=OrderState)
+        query = (
+            Order.query
+            .filter_by(restaurant_id=restaurant.restaurant_id)
+        )
     else:
-        orders = []
+        return render_template('order/list.html', orders=[],
+                               status_tabs=STATUS_TABS,
+                               current_status=status,
+                               OrderState=OrderState)
 
-    return render_template('order/list.html', orders=orders)
+    # Apply status filter
+    if status in STATUS_GROUPS:
+        query = query.filter(Order.status.in_(STATUS_GROUPS[status]))
+
+    orders = query.order_by(Order.created_at.desc()).all()
+
+    return render_template('order/list.html', orders=orders,
+                           status_tabs=STATUS_TABS,
+                           current_status=status,
+                           OrderState=OrderState)
 
 
 # ============================================================
-# 订单详情
+# Order detail
 # ============================================================
 @order_bp.route('/<int:id>')
 @login_required
 def detail(id):
     order = Order.query.get_or_404(id)
-    return render_template('order/detail.html', order=order)
+    return render_template('order/detail.html', order=order,
+                           OrderState=OrderState)
 
 
 # ============================================================
-# 商家接单 / 取消订单
+# State transition — single endpoint, delegates to OrderState
 # ============================================================
 @order_bp.route('/<int:id>/action/<action>')
 @login_required
 def action(id, action):
     order = Order.query.get_or_404(id)
+    actor = _actor()
 
-    # 权限检查
-    role = session['role']
-    user_id = session['user_id']
-
-    valid_actions = {
-        'confirm': {
-            'from': 'pending',
-            'to': 'confirmed',
-            'role': 'merchant',
-            'check_restaurant': True,
-            'msg': '已接单',
-        },
-        'cancel': {
-            'from': ['pending', 'confirmed'],
-            'to': 'cancelled',
-            'role': '*',  # 顾客或商家都可以取消
-            'check_restaurant': True,
-            'msg': '订单已取消',
-        },
-        'prepare': {
-            'from': 'confirmed',
-            'to': 'preparing',
-            'role': 'merchant',
-            'check_restaurant': True,
-            'msg': '开始备餐',
-        },
-        'ready': {
-            'from': 'preparing',
-            'to': 'delivering',
-            'role': 'merchant',
-            'check_restaurant': True,
-            'msg': '已准备好，等待骑手取餐',
-        },
-    }
-
-    if action not in valid_actions:
-        flash('无效操作', 'danger')
+    result = OrderState.transition(order, action, actor)
+    if not result.ok:
+        flash(result.error, 'warning')
         return redirect(url_for('order.my_orders'))
 
-    spec = valid_actions[action]
-    from_statuses = spec['from'] if isinstance(spec['from'], list) else [spec['from']]
+    # Apply transition
+    order.status = result.new_status
 
-    if order.status not in from_statuses:
-        flash(f'当前订单状态为「{order.status}」，无法执行此操作', 'warning')
-        return redirect(url_for('order.my_orders'))
+    # Handle side effects
+    side = OrderState.side_effect(action)
+    if side == 'rider_assigned':
+        order.rider_id = session['user_id']
+    elif side == 'rider_picked_up':
+        from datetime import datetime
+        order.pickup_time = datetime.utcnow()
+    elif side == 'rider_delivered':
+        from datetime import datetime
+        order.delivery_time = datetime.utcnow()
 
-    if spec['role'] != '*' and role != spec['role']:
-        flash('无权操作', 'danger')
-        return redirect(url_for('order.my_orders'))
-
-    if spec.get('check_restaurant') and role == 'merchant':
-        restaurant = Restaurant.query.filter_by(owner_id=user_id).first()
-        if not restaurant or order.restaurant_id != restaurant.restaurant_id:
-            flash('无权操作此订单', 'danger')
-            return redirect(url_for('order.my_orders'))
-
-    if action == 'cancel' and role == 'customer' and order.customer_id != user_id:
-        flash('无权操作此订单', 'danger')
-        return redirect(url_for('order.my_orders'))
-
-    order.status = spec['to']
     db.session.commit()
-    flash(spec['msg'], 'success')
+
+    # Flash message
+    msgs = {
+        'confirm': '已接单', 'cancel': '订单已取消', 'prepare': '开始备餐',
+        'ready': '已准备好，等待骑手取餐', 'assign': '接单成功！',
+        'pickup': '已取餐，请尽快送达', 'deliver': '已送达！',
+    }
+    flash(msgs.get(action, '操作成功'), 'success')
     return redirect(url_for('order.my_orders'))
 
 
 # ============================================================
-# 评价
+# Review
 # ============================================================
 @order_bp.route('/<int:id>/review', methods=['GET', 'POST'])
 @login_required
@@ -224,7 +230,6 @@ def review(id):
         review = Review(
             order_id=id,
             customer_id=session['user_id'],
-            restaurant_id=order.restaurant_id,
             rating=form.rating.data,
             comment=form.comment.data or None,
         )

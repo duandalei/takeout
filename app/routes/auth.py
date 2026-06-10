@@ -1,4 +1,4 @@
-"""用户认证路由: 注册 / 登录 / 登出"""
+"""User auth routes: register / login / logout + authorization decorators."""
 
 from functools import wraps
 from flask import Blueprint, render_template, redirect, url_for, flash, session, request
@@ -10,11 +10,11 @@ auth_bp = Blueprint('auth', __name__)
 
 
 # ============================================================
-# 鉴权装饰器
+# Auth decorators (kept for backward compat; prefer app.domain.require)
 # ============================================================
 
 def login_required(f):
-    """要求登录"""
+    """Require login.  Prefer @require() from app.domain for new code."""
     @wraps(f)
     def decorated(*args, **kwargs):
         if 'user_id' not in session:
@@ -25,7 +25,7 @@ def login_required(f):
 
 
 def role_required(*roles):
-    """要求特定角色"""
+    """Require specific role.  Prefer @require(role=...) from app.domain for new code."""
     def decorator(f):
         @wraps(f)
         def decorated(*args, **kwargs):
@@ -41,7 +41,7 @@ def role_required(*roles):
 
 
 # ============================================================
-# 注册
+# Register
 # ============================================================
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
@@ -50,7 +50,6 @@ def register():
 
     form = RegisterForm()
     if form.validate_on_submit():
-        # 检查用户名是否已存在
         existing = User.query.filter_by(username=form.username.data).first()
         if existing:
             flash('用户名已被注册', 'danger')
@@ -75,7 +74,7 @@ def register():
 
 
 # ============================================================
-# 登录
+# Login
 # ============================================================
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
@@ -103,7 +102,7 @@ def login():
 
 
 # ============================================================
-# 登出
+# Logout
 # ============================================================
 @auth_bp.route('/logout')
 def logout():

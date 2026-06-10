@@ -3,7 +3,19 @@
 {% block title %}我的订单 - 外卖管理系统{% endblock %}
 
 {% block content %}
-<h2 class="mb-4"><i class="bi bi-receipt"></i> 订单列表</h2>
+<h2 class="mb-3"><i class="bi bi-receipt"></i> 订单列表</h2>
+
+<!-- 状态筛选标签 -->
+<ul class="nav nav-pills mb-4">
+    {% for key, label in status_tabs %}
+    <li class="nav-item">
+        <a class="nav-link {% if current_status == key %}active{% endif %}"
+           href="{{ url_for('order.my_orders', status=key) if key != 'all' else url_for('order.my_orders') }}">
+            {{ label }}
+        </a>
+    </li>
+    {% endfor %}
+</ul>
 
 {% if orders %}
 <div class="row">
@@ -13,7 +25,7 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between mb-2">
                     <span class="fw-bold">#{{ order.order_id }}</span>
-                    <span class="order-status status-{{ order.status }}">{{ order.status }}</span>
+                    <span class="order-status status-{{ order.status }}">{{ OrderState.status_label(order.status) }}</span>
                 </div>
                 <p class="small mb-1">
                     <i class="bi bi-shop text-primary"></i>
@@ -46,7 +58,14 @@
 {% else %}
 <div class="text-center py-5">
     <i class="bi bi-inbox display-1 text-muted"></i>
+    {% if current_status != 'all' %}
+    <p class="text-muted mt-3">暂无符合条件的订单</p>
+    <a href="{{ url_for('order.my_orders') }}" class="btn btn-outline-secondary btn-sm mt-2">
+        <i class="bi bi-arrow-left"></i> 查看全部订单
+    </a>
+    {% else %}
     <p class="text-muted mt-3">暂无订单</p>
+    {% endif %}
 </div>
 {% endif %}
 {% endblock %}

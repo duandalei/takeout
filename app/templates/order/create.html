@@ -14,6 +14,16 @@
 <form method="post" id="order-form">
     {{ form.hidden_tag() }}
 
+    {% if form.errors %}
+    <div class="alert alert-danger">
+        {% for field, errors in form.errors.items() %}
+        {% for error in errors %}
+        <div>{{ error }}</div>
+        {% endfor %}
+        {% endfor %}
+    </div>
+    {% endif %}
+
     <!-- 菜品选择 -->
     <h5 class="mt-4 mb-3">选择菜品</h5>
     <div class="row row-cols-1 row-cols-md-2 g-3 mb-4">
@@ -48,7 +58,13 @@
         <div class="card-body">
             <h5>订单汇总</h5>
             <div id="cart-summary" class="text-muted mb-2">暂未选择菜品</div>
-            <h4 class="price">总计: ¥<span id="total-price">0.00</span></h4>
+            <div class="border-top pt-2 mt-2">
+                <div class="d-flex justify-content-between text-muted small">
+                    <span>配送费</span>
+                    <span>¥{{ '%.2f'|format(config.DELIVERY_FEE) }}</span>
+                </div>
+                <h4 class="price mt-1">总计: ¥<span id="total-price">0.00</span></h4>
+            </div>
         </div>
     </div>
 
@@ -77,13 +93,14 @@
 {% block scripts %}
 <script>
 (function() {
+    const DELIVERY_FEE = {{ config.DELIVERY_FEE }};
     const cart = {};
     const summaryEl = document.getElementById('cart-summary');
     const totalEl = document.getElementById('total-price');
     const cartDataEl = document.getElementById('cart-data');
 
     function updateCart() {
-        let total = 0;
+        let subtotal = 0;
         let summary = '';
         let hasItems = false;
 
@@ -93,7 +110,7 @@
             const price = parseFloat(input.dataset.price);
             if (qty > 0) {
                 cart[id] = qty;
-                total += qty * price;
+                subtotal += qty * price;
                 const name = input.closest('.card').querySelector('.card-title').textContent;
                 summary += `<div>${name} x${qty} = ¥${(qty * price).toFixed(2)}</div>`;
                 hasItems = true;
@@ -102,6 +119,7 @@
             }
         });
 
+        const total = subtotal + DELIVERY_FEE;
         summaryEl.innerHTML = hasItems ? summary : '暂未选择菜品';
         totalEl.textContent = total.toFixed(2);
         cartDataEl.value = JSON.stringify(cart);

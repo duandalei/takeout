@@ -1,4 +1,4 @@
-<!-- 订单详情 -->
+<!-- Order detail -->
 {% extends "base.html" %}
 {% block title %}订单 #{{ order.order_id }} - 外卖管理系统{% endblock %}
 
@@ -14,7 +14,7 @@
         <div class="card shadow-sm mb-3">
             <div class="card-header d-flex justify-content-between">
                 <strong>订单 #{{ order.order_id }}</strong>
-                <span class="order-status status-{{ order.status }}">{{ order.status }}</span>
+                <span class="order-status status-{{ order.status }}">{{ OrderState.status_label(order.status) }}</span>
             </div>
             <div class="list-group list-group-flush">
                 {% for oi in order.order_items %}
@@ -25,11 +25,15 @@
                 {% endfor %}
             </div>
             <div class="card-footer text-end">
+                <div class="small text-muted">
+                    菜品合计: ¥{{ '%.2f'|format(order.total_amount - (order.delivery_fee or 0)) }}
+                    &nbsp;+&nbsp;配送费: ¥{{ '%.2f'|format(order.delivery_fee or 0) }}
+                </div>
                 <strong class="price">总计: ¥{{ '%.2f'|format(order.total_amount) }}</strong>
             </div>
         </div>
 
-        <!-- 操作按钮 -->
+        <!-- Action buttons -->
         <div class="mb-3">
             {% if current_user.role == 'merchant' %}
                 {% if order.status == 'pending' %}
@@ -68,25 +72,22 @@
         <div class="card shadow-sm mb-3">
             <div class="card-header"><strong>订单信息</strong></div>
             <div class="card-body small">
+                <p><strong>状态:</strong>
+                    <span class="order-status status-{{ order.status }}">
+                        {{ OrderState.status_label(order.status) }}
+                    </span>
+                </p>
                 <p><strong>商家:</strong> {{ order.restaurant.name if order.restaurant else '-' }}</p>
                 <p><strong>配送地址:</strong> {{ order.delivery_address }}</p>
                 <p><strong>顾客:</strong> {{ order.customer.real_name if order.customer else '-' }}</p>
                 <p><strong>骑手:</strong> {{ order.rider.real_name if order.rider else '未分配' }}</p>
                 <p><strong>备注:</strong> {{ order.note or '无' }}</p>
                 <p><strong>下单时间:</strong> {{ order.created_at.strftime('%Y-%m-%d %H:%M') if order.created_at else '' }}</p>
-                {% if order.delivery %}
-                <hr>
-                <p><strong>配送状态:</strong>
-                    <span class="delivery-status status-{{ order.delivery.status }}">
-                        {{ order.delivery.status }}
-                    </span>
-                </p>
-                {% if order.delivery.pickup_time %}
-                <p><strong>取餐时间:</strong> {{ order.delivery.pickup_time.strftime('%m-%d %H:%M') }}</p>
+                {% if order.pickup_time %}
+                <p><strong>取餐时间:</strong> {{ order.pickup_time.strftime('%m-%d %H:%M') }}</p>
                 {% endif %}
-                {% if order.delivery.delivery_time %}
-                <p><strong>送达时间:</strong> {{ order.delivery.delivery_time.strftime('%m-%d %H:%M') }}</p>
-                {% endif %}
+                {% if order.delivery_time %}
+                <p><strong>送达时间:</strong> {{ order.delivery_time.strftime('%m-%d %H:%M') }}</p>
                 {% endif %}
                 {% if order.review %}
                 <hr>

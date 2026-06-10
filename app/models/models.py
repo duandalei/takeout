@@ -1,10 +1,25 @@
-"""SQLAlchemy 数据模型 — 8 个实体对应 8 张表"""
+"""SQLAlchemy data models — 7 entities across 7 tables (was 8, Delivery collapsed into Orders)."""
 
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import CheckConstraint, Index
 
 db = SQLAlchemy()
+
+
+# ============================================================
+# 0. 订单状态查找表
+# ============================================================
+class OrderStatus(db.Model):
+    __tablename__ = 'OrderStatuses'
+
+    status_code  = db.Column(db.String(20), primary_key=True)
+    display_name = db.Column(db.String(50), nullable=False)
+    sequence     = db.Column(db.Integer, nullable=False)
+    is_terminal  = db.Column(db.Boolean, nullable=False, default=False)
+
+    def __repr__(self):
+        return f'<OrderStatus {self.status_code}: {self.display_name}>'
 
 
 # ============================================================
@@ -25,18 +40,17 @@ class User(db.Model):
 
     __table_args__ = (
         CheckConstraint(
-            "role IN ('customer','merchant','rider','admin')",
+            "role IN ('customer','merchant','rider')",
             name='CK_Users_Role',
         ),
         Index('IX_Users_Role', 'role'),
     )
 
-    # 关系
-    restaurants   = db.relationship('Restaurant', backref='owner',     lazy='dynamic')
-    orders_customer = db.relationship('Order', foreign_keys='Order.customer_id', backref='customer', lazy='dynamic')
-    orders_rider    = db.relationship('Order', foreign_keys='Order.rider_id',    backref='rider',    lazy='dynamic')
-    deliveries    = db.relationship('Delivery',  backref='rider_info', lazy='dynamic')
-    reviews       = db.relationship('Review',    backref='customer_info', lazy='dynamic')
+    # relationships
+    restaurants      = db.relationship('Restaurant', backref='owner',     lazy='dynamic')
+    orders_customer  = db.relationship('Order', foreign_keys='Order.customer_id', backref='customer', lazy='dynamic')
+    orders_rider     = db.relationship('Order', foreign_keys='Order.rider_id',    backref='rider',    lazy='dynamic')
+    reviews          = db.relationship('Review',    backref='customer_info', lazy='dynamic')
 
     def __repr__(self):
         return f'<User {self.user_id}: {self.username} ({self.role})>'
@@ -57,6 +71,7 @@ class Restaurant(db.Model):
     logo_url      = db.Column(db.String(255))
     status        = db.Column(db.String(20), nullable=False, default='open')
     created_at    = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at    = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     __table_args__ = (
         CheckConstraint("status IN ('open','closed')", name='CK_Restaurants_Status'),
@@ -68,7 +83,6 @@ class Restaurant(db.Model):
                                     cascade='all, delete-orphan')
     menu_items    = db.relationship('MenuItem', backref='restaurant', lazy='dynamic')
     orders        = db.relationship('Order', backref='restaurant', lazy='dynamic')
-    reviews       = db.relationship('Review', backref='restaurant', lazy='dynamic')
 
     def __repr__(self):
         return f'<Restaurant {self.restaurant_id}: {self.name}>'
@@ -84,6 +98,7 @@ class MenuCategory(db.Model):
     restaurant_id = db.Column(db.Integer, db.ForeignKey('Restaurants.restaurant_id', ondelete='CASCADE'), nullable=False)
     name          = db.Column(db.String(50), nullable=False)
     sort_order    = db.Column(db.Integer, nullable=False, default=0)
+    updated_at    = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     __table_args__ = (
         Index('IX_Categories_Restaurant', 'restaurant_id'),
@@ -109,6 +124,7 @@ class MenuItem(db.Model):
     price         = db.Column(db.Numeric(10, 2), nullable=False)
     image_url     = db.Column(db.String(255))
     status        = db.Column(db.String(20), nullable=False, default='available')
+    updated_at    = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     __table_args__ = (
         CheckConstraint("price >= 0",       name='CK_Items_Price'),
@@ -125,26 +141,35 @@ class MenuItem(db.Model):
 
 
 # ============================================================
-# 5. 订单表
+# 5. 订单表 (absorbed old Delivery table)
 # ============================================================
 class Order(db.Model):
     __tablename__ = 'Orders'
 
-    order_id        = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    customer_id     = db.Column(db.Integer, db.ForeignKey('Users.user_id'), nullable=False)
-    restaurant_id   = db.Column(db.Integer, db.ForeignKey('Restaurants.restaurant_id'), nullable=False)
-    rider_id        = db.Column(db.Integer, db.ForeignKey('Users.user_id'), nullable=True)
+    order_id         = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    customer_id      = db.Column(db.Integer, db.ForeignKey('Users.user_id'), nullable=False)
+    restaurant_id    = db.Column(db.Integer, db.ForeignKey('Restaurants.restaurant_id'), nullable=False)
+    rider_id         = db.Column(db.Integer, db.ForeignKey('Users.user_id'), nullable=True)
     delivery_address = db.Column(db.String(200), nullable=False)
-    status          = db.Column(db.String(20), nullable=False, default='pending')
-    total_amount    = db.Column(db.Numeric(10, 2), nullable=False, default=0)
-    note            = db.Column(db.String(500))
-    created_at      = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at      = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    status           = db.Column(db.String(20), nullable=False, default='pending')
+    total_amount     = db.Column(db.Numeric(10, 2), nullable=False, default=0)
+    delivery_fee     = db.Column(db.Numeric(10, 2), nullable=False, default=5.00)
+    note             = db.Column(db.String(500))
+    # Delivery fields (was a separate table)
+    pickup_time      = db.Column(db.DateTime, nullable=True)
+    delivery_time    = db.Column(db.DateTime, nullable=True)
+    # Timestamps
+    created_at       = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at       = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     __table_args__ = (
         CheckConstraint("total_amount >= 0", name='CK_Orders_Amount'),
+        CheckConstraint("delivery_fee >= 0", name='CK_Orders_DeliveryFee'),
         CheckConstraint(
-            "status IN ('pending','confirmed','preparing','delivering','delivered','cancelled')",
+            "status IN ("
+            "'pending','confirmed','preparing','ready',"
+            "'assigned','picked_up','delivered','cancelled'"
+            ")",
             name='CK_Orders_Status',
         ),
         Index('IX_Orders_Customer', 'customer_id'),
@@ -154,8 +179,6 @@ class Order(db.Model):
     )
 
     order_items = db.relationship('OrderItem', backref='order', lazy='dynamic',
-                                   cascade='all, delete-orphan')
-    delivery    = db.relationship('Delivery', backref='order', uselist=False,
                                    cascade='all, delete-orphan')
     review      = db.relationship('Review', backref='order', uselist=False,
                                    cascade='all, delete-orphan')
@@ -187,32 +210,7 @@ class OrderItem(db.Model):
 
 
 # ============================================================
-# 7. 配送表
-# ============================================================
-class Delivery(db.Model):
-    __tablename__ = 'Delivery'
-
-    delivery_id   = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    order_id      = db.Column(db.Integer, db.ForeignKey('Orders.order_id', ondelete='CASCADE'), unique=True, nullable=False)
-    rider_id      = db.Column(db.Integer, db.ForeignKey('Users.user_id'), nullable=False)
-    pickup_time   = db.Column(db.DateTime)
-    delivery_time = db.Column(db.DateTime)
-    status        = db.Column(db.String(20), nullable=False, default='assigned')
-
-    __table_args__ = (
-        CheckConstraint(
-            "status IN ('assigned','picked_up','delivered')",
-            name='CK_Delivery_Status',
-        ),
-        Index('IX_Delivery_Rider', 'rider_id'),
-    )
-
-    def __repr__(self):
-        return f'<Delivery {self.delivery_id}: order={self.order_id} status={self.status}>'
-
-
-# ============================================================
-# 8. 评价表
+# 7. 评价表 (restaurant_id removed — queried through Orders)
 # ============================================================
 class Review(db.Model):
     __tablename__ = 'Reviews'
@@ -220,14 +218,13 @@ class Review(db.Model):
     review_id     = db.Column(db.Integer, primary_key=True, autoincrement=True)
     order_id      = db.Column(db.Integer, db.ForeignKey('Orders.order_id'), unique=True, nullable=False)
     customer_id   = db.Column(db.Integer, db.ForeignKey('Users.user_id'), nullable=False)
-    restaurant_id = db.Column(db.Integer, db.ForeignKey('Restaurants.restaurant_id'), nullable=False)
     rating        = db.Column(db.SmallInteger, nullable=False)
     comment       = db.Column(db.String(500))
     created_at    = db.Column(db.DateTime, default=datetime.utcnow)
 
     __table_args__ = (
         CheckConstraint("rating BETWEEN 1 AND 5", name='CK_Reviews_Rating'),
-        Index('IX_Reviews_Restaurant', 'restaurant_id'),
+        Index('IX_Reviews_Order', 'order_id'),
     )
 
     def __repr__(self):

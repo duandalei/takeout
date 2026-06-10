@@ -6,6 +6,7 @@ import os
 class Config:
     """基础配置"""
     SECRET_KEY = os.environ.get('SECRET_KEY', 'takeout-secret-key-2025')
+    DELIVERY_FEE = 5.00  # 固定配送费 (元)
 
     # SQL Server 连接 — Windows 身份验证
     DB_SERVER = os.environ.get('DB_SERVER', '.')

@@ -22,7 +22,8 @@
                         <i class="bi bi-pencil"></i> 编辑
                     </a>
                     <a href="{{ url_for('restaurant.toggle_status') }}"
-                       class="btn btn-outline-{{ 'secondary' if restaurant.status == 'open' else 'success' }} btn-sm">
+                       class="btn btn-outline-{{ 'secondary' if restaurant.status == 'open' else 'success' }} btn-sm"
+                       onclick="return confirm('{{ '确定要歇业吗？歇业后顾客将无法查看店铺和下单。' if restaurant.status == 'open' else '确定要恢复营业吗？' }}')">
                         {{ '歇业' if restaurant.status == 'open' else '恢复营业' }}
                     </a>
                 </div>
@@ -78,12 +79,13 @@
                         <i class="bi bi-pencil"></i>
                     </a>
                     <a href="{{ url_for('menu.toggle', id=item.item_id) }}"
-                       class="btn btn-outline-{{ 'secondary' if item.status == 'available' else 'success' }} btn-sm">
+                       class="btn btn-outline-{{ 'secondary' if item.status == 'available' else 'success' }} btn-sm"
+                       onclick="return confirm('{{ '确定要下架此菜品吗？下架后顾客将无法再点此菜。' if item.status == 'available' else '确定要上架此菜品吗？' }}')">
                         {{ '下架' if item.status == 'available' else '上架' }}
                     </a>
                     <a href="{{ url_for('menu.delete', id=item.item_id) }}"
                        class="btn btn-outline-danger btn-sm"
-                       onclick="return confirm('确定删除此菜品？')">
+                       onclick="return confirm('确定删除「{{ item.name }}」吗？此操作不可撤销。')">
                         <i class="bi bi-trash"></i>
                     </a>
                 </div>
