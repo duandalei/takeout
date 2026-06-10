@@ -6,12 +6,12 @@ echo   Takeout System - Starting
 echo ============================
 echo.
 
-cd /d "C:\Users\段大磊\Desktop\takeout"
+cd /d "%~dp0"
 
 echo Starting Flask app...
 start "" http://127.0.0.1:5000
 
-D:\develop\Anaconda\envs\takeout\python.exe run.py
+conda run -n takeout python run.py
 
 echo.
 echo App exited.
