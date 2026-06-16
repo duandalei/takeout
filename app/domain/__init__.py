@@ -1,8 +1,8 @@
 """Domain modules — deep modules with narrow interfaces.
 
-OrderState:    order lifecycle state machine
-Authorization: unified permission checking
+OrderState: order lifecycle state machine
+require:    unified auth decorator
 """
 
 from .order_state import OrderState
-from .auth import Authorization, require
+from .auth import require

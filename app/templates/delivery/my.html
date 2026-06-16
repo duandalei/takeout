@@ -12,7 +12,7 @@
         <div class="card shadow-sm h-100">
             <div class="card-body">
                 <h5>订单 #{{ order.order_id }}</h5>
-                <span class="delivery-status status-{{ order.status }}">
+                <span class="order-status status-{{ order.status }}">
                     {{ OrderState.status_label(order.status) }}
                 </span>
                 <hr>

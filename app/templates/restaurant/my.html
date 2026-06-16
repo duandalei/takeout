@@ -54,10 +54,14 @@
     </div>
 </div>
 
+<div id="category-list">
 {% for category in categories %}
-<div class="card shadow-sm mb-3">
+<div class="card shadow-sm mb-3 category-card" data-category-id="{{ category.category_id }}">
     <div class="card-header bg-light d-flex justify-content-between align-items-center">
-        <strong>{{ category.name }}</strong>
+        <span>
+            <i class="bi bi-grip-vertical drag-handle me-2"></i>
+            <strong>{{ category.name }}</strong>
+        </span>
         <small class="text-muted">{{ category.items|list|length }} 个菜品</small>
     </div>
     <div class="list-group list-group-flush">
@@ -95,4 +99,30 @@
     </div>
 </div>
 {% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script>
+const el = document.getElementById('category-list');
+if (el) {
+    Sortable.create(el, {
+        handle: '.drag-handle',
+        animation: 200,
+        ghostClass: 'category-ghost',
+        onEnd: function () {
+            const ids = [];
+            el.querySelectorAll('.category-card').forEach(card => {
+                ids.push(parseInt(card.dataset.categoryId));
+            });
+            fetch('{{ url_for("restaurant.reorder_categories") }}', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({order: ids})
+            });
+        }
+    });
+}
+</script>
 {% endblock %}

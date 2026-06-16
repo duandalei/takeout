@@ -1,4 +1,4 @@
-"""SQLAlchemy data models — 7 entities across 7 tables (was 8, Delivery collapsed into Orders)."""
+"""SQLAlchemy data models — 7 entities across 7 tables."""
 
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
@@ -8,49 +8,29 @@ db = SQLAlchemy()
 
 
 # ============================================================
-# 0. 订单状态查找表
-# ============================================================
-class OrderStatus(db.Model):
-    __tablename__ = 'OrderStatuses'
-
-    status_code  = db.Column(db.String(20), primary_key=True)
-    display_name = db.Column(db.String(50), nullable=False)
-    sequence     = db.Column(db.Integer, nullable=False)
-    is_terminal  = db.Column(db.Boolean, nullable=False, default=False)
-
-    def __repr__(self):
-        return f'<OrderStatus {self.status_code}: {self.display_name}>'
-
-
-# ============================================================
 # 1. 用户表
 # ============================================================
 class User(db.Model):
     __tablename__ = 'Users'
 
-    user_id      = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    username     = db.Column(db.String(50), unique=True, nullable=False)
+    user_id       = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    username      = db.Column(db.String(50), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
-    real_name    = db.Column(db.String(50), nullable=False)
-    phone        = db.Column(db.String(20), nullable=False)
-    email        = db.Column(db.String(100))
-    address      = db.Column(db.String(200))
-    role         = db.Column(db.String(20), nullable=False, default='customer')
-    created_at   = db.Column(db.DateTime, default=datetime.utcnow)
+    real_name     = db.Column(db.String(50), nullable=False)
+    phone         = db.Column(db.String(20), nullable=False)
+    address       = db.Column(db.String(200))
+    role          = db.Column(db.String(20), nullable=False, default='customer')
+    created_at    = db.Column(db.DateTime, default=datetime.utcnow)
 
     __table_args__ = (
-        CheckConstraint(
-            "role IN ('customer','merchant','rider')",
-            name='CK_Users_Role',
-        ),
+        CheckConstraint("role IN ('customer','merchant','rider')", name='CK_Users_Role'),
         Index('IX_Users_Role', 'role'),
     )
 
-    # relationships
     restaurants      = db.relationship('Restaurant', backref='owner',     lazy='dynamic')
     orders_customer  = db.relationship('Order', foreign_keys='Order.customer_id', backref='customer', lazy='dynamic')
     orders_rider     = db.relationship('Order', foreign_keys='Order.rider_id',    backref='rider',    lazy='dynamic')
-    reviews          = db.relationship('Review',    backref='customer_info', lazy='dynamic')
+    reviews          = db.relationship('Review', backref='customer_info', lazy='dynamic')
 
     def __repr__(self):
         return f'<User {self.user_id}: {self.username} ({self.role})>'
@@ -68,10 +48,8 @@ class Restaurant(db.Model):
     address       = db.Column(db.String(200), nullable=False)
     phone         = db.Column(db.String(20), nullable=False)
     description   = db.Column(db.String(500))
-    logo_url      = db.Column(db.String(255))
     status        = db.Column(db.String(20), nullable=False, default='open')
     created_at    = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at    = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     __table_args__ = (
         CheckConstraint("status IN ('open','closed')", name='CK_Restaurants_Status'),
@@ -98,7 +76,6 @@ class MenuCategory(db.Model):
     restaurant_id = db.Column(db.Integer, db.ForeignKey('Restaurants.restaurant_id', ondelete='CASCADE'), nullable=False)
     name          = db.Column(db.String(50), nullable=False)
     sort_order    = db.Column(db.Integer, nullable=False, default=0)
-    updated_at    = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     __table_args__ = (
         Index('IX_Categories_Restaurant', 'restaurant_id'),
@@ -118,16 +95,14 @@ class MenuItem(db.Model):
 
     item_id       = db.Column(db.Integer, primary_key=True, autoincrement=True)
     restaurant_id = db.Column(db.Integer, db.ForeignKey('Restaurants.restaurant_id'), nullable=False)
-    category_id   = db.Column(db.Integer, db.ForeignKey('MenuCategories.category_id'), nullable=False)
+    category_id   = db.Column(db.Integer, db.ForeignKey('MenuCategories.category_id', ondelete='CASCADE'), nullable=False)
     name          = db.Column(db.String(100), nullable=False)
     description   = db.Column(db.String(500))
     price         = db.Column(db.Numeric(10, 2), nullable=False)
-    image_url     = db.Column(db.String(255))
     status        = db.Column(db.String(20), nullable=False, default='available')
-    updated_at    = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     __table_args__ = (
-        CheckConstraint("price >= 0",       name='CK_Items_Price'),
+        CheckConstraint("price >= 0", name='CK_Items_Price'),
         CheckConstraint("status IN ('available','unavailable')", name='CK_Items_Status'),
         Index('IX_Items_Restaurant', 'restaurant_id'),
         Index('IX_Items_Category', 'category_id'),
@@ -158,9 +133,7 @@ class Order(db.Model):
     # Delivery fields (was a separate table)
     pickup_time      = db.Column(db.DateTime, nullable=True)
     delivery_time    = db.Column(db.DateTime, nullable=True)
-    # Timestamps
     created_at       = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at       = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     __table_args__ = (
         CheckConstraint("total_amount >= 0", name='CK_Orders_Amount'),
@@ -216,7 +189,7 @@ class Review(db.Model):
     __tablename__ = 'Reviews'
 
     review_id     = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    order_id      = db.Column(db.Integer, db.ForeignKey('Orders.order_id'), unique=True, nullable=False)
+    order_id      = db.Column(db.Integer, db.ForeignKey('Orders.order_id', ondelete='CASCADE'), unique=True, nullable=False)
     customer_id   = db.Column(db.Integer, db.ForeignKey('Users.user_id'), nullable=False)
     rating        = db.Column(db.SmallInteger, nullable=False)
     comment       = db.Column(db.String(500))

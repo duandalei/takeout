@@ -1,28 +1,22 @@
 """Order routes: create / list / detail / state transitions / review."""
 
 import json
+from datetime import datetime
 from decimal import Decimal
-from flask import Blueprint, render_template, redirect, url_for, flash, session, request
+from flask import Blueprint, render_template, redirect, url_for, flash, session, request, current_app
 from app.models import db, Order, OrderItem, MenuItem, Restaurant, Review
 from app.forms import OrderForm, ReviewForm
-from app.routes.auth import login_required, role_required
-from flask import current_app
-from app.domain.order_state import OrderState
+from app.domain.auth import require
+from app.domain.order_state import OrderState, get_actor
 
 order_bp = Blueprint('order', __name__)
-
-
-def _actor():
-    """Build actor dict from session for OrderState.transition()."""
-    return {'user_id': session.get('user_id'), 'role': session.get('role')}
 
 
 # ============================================================
 # Create order from restaurant detail page
 # ============================================================
 @order_bp.route('/create/<int:restaurant_id>', methods=['GET', 'POST'])
-@login_required
-@role_required('customer')
+@require(role='customer')
 def create(restaurant_id):
     restaurant = Restaurant.query.get_or_404(restaurant_id)
     if restaurant.status != 'open':
@@ -37,7 +31,6 @@ def create(restaurant_id):
     )
 
     form = OrderForm()
-    # Populate restaurant_id so DataRequired validator passes
     if request.method == 'GET':
         form.restaurant_id.data = restaurant_id
     if form.validate_on_submit():
@@ -62,9 +55,7 @@ def create(restaurant_id):
                 continue
             total += item.price * qty
             order_items.append(OrderItem(
-                item_id=item.item_id,
-                quantity=qty,
-                unit_price=item.price,
+                item_id=item.item_id, quantity=qty, unit_price=item.price,
             ))
 
         if not order_items:
@@ -89,10 +80,7 @@ def create(restaurant_id):
         flash(f'订单已提交！总计 ¥{total + delivery_fee:.2f} (含配送费 ¥{delivery_fee:.2f})', 'success')
         return redirect(url_for('order.my_orders'))
 
-    return render_template('order/create.html',
-                           restaurant=restaurant,
-                           items=items,
-                           form=form)
+    return render_template('order/create.html', restaurant=restaurant, items=items, form=form)
 
 
 # ============================================================
@@ -116,43 +104,32 @@ STATUS_TABS = [
 
 
 @order_bp.route('/my')
-@login_required
+@require()
 def my_orders():
     user_id = session['user_id']
     role = session['role']
     status = request.args.get('status', 'all')
 
     if role == 'customer':
-        query = (
-            Order.query
-            .filter_by(customer_id=user_id)
-        )
+        query = Order.query.filter_by(customer_id=user_id)
     elif role == 'merchant':
         restaurant = Restaurant.query.filter_by(owner_id=user_id).first()
         if not restaurant:
             return render_template('order/list.html', orders=[],
-                                   status_tabs=STATUS_TABS,
-                                   current_status=status,
+                                   status_tabs=STATUS_TABS, current_status=status,
                                    OrderState=OrderState)
-        query = (
-            Order.query
-            .filter_by(restaurant_id=restaurant.restaurant_id)
-        )
+        query = Order.query.filter_by(restaurant_id=restaurant.restaurant_id)
     else:
         return render_template('order/list.html', orders=[],
-                               status_tabs=STATUS_TABS,
-                               current_status=status,
+                               status_tabs=STATUS_TABS, current_status=status,
                                OrderState=OrderState)
 
-    # Apply status filter
     if status in STATUS_GROUPS:
         query = query.filter(Order.status.in_(STATUS_GROUPS[status]))
 
     orders = query.order_by(Order.created_at.desc()).all()
-
     return render_template('order/list.html', orders=orders,
-                           status_tabs=STATUS_TABS,
-                           current_status=status,
+                           status_tabs=STATUS_TABS, current_status=status,
                            OrderState=OrderState)
 
 
@@ -160,44 +137,38 @@ def my_orders():
 # Order detail
 # ============================================================
 @order_bp.route('/<int:id>')
-@login_required
+@require()
 def detail(id):
     order = Order.query.get_or_404(id)
-    return render_template('order/detail.html', order=order,
-                           OrderState=OrderState)
+    return render_template('order/detail.html', order=order, OrderState=OrderState)
 
 
 # ============================================================
 # State transition — single endpoint, delegates to OrderState
 # ============================================================
 @order_bp.route('/<int:id>/action/<action>')
-@login_required
+@require()
 def action(id, action):
     order = Order.query.get_or_404(id)
-    actor = _actor()
+    actor = get_actor()
 
     result = OrderState.transition(order, action, actor)
     if not result.ok:
         flash(result.error, 'warning')
         return redirect(url_for('order.my_orders'))
 
-    # Apply transition
     order.status = result.new_status
 
-    # Handle side effects
     side = OrderState.side_effect(action)
     if side == 'rider_assigned':
         order.rider_id = session['user_id']
     elif side == 'rider_picked_up':
-        from datetime import datetime
         order.pickup_time = datetime.utcnow()
     elif side == 'rider_delivered':
-        from datetime import datetime
         order.delivery_time = datetime.utcnow()
 
     db.session.commit()
 
-    # Flash message
     msgs = {
         'confirm': '已接单', 'cancel': '订单已取消', 'prepare': '开始备餐',
         'ready': '已准备好，等待骑手取餐', 'assign': '接单成功！',
@@ -211,8 +182,7 @@ def action(id, action):
 # Review
 # ============================================================
 @order_bp.route('/<int:id>/review', methods=['GET', 'POST'])
-@login_required
-@role_required('customer')
+@require(role='customer')
 def review(id):
     order = Order.query.get_or_404(id)
     if order.customer_id != session['user_id']:

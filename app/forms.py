@@ -3,7 +3,7 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SelectField, TextAreaField, HiddenField
 from wtforms import IntegerField, DecimalField, SubmitField
-from wtforms.validators import DataRequired, Length, Email, NumberRange, Optional
+from wtforms.validators import DataRequired, Length, NumberRange, Optional
 
 
 class LoginForm(FlaskForm):
@@ -17,7 +17,6 @@ class RegisterForm(FlaskForm):
     password = PasswordField('密码', validators=[DataRequired(), Length(1, 128)])
     real_name = StringField('真实姓名', validators=[DataRequired(), Length(1, 50)])
     phone = StringField('电话', validators=[DataRequired(), Length(5, 20)])
-    email = StringField('邮箱', validators=[Optional(), Email()])
     address = StringField('地址', validators=[Optional(), Length(max=200)])
     role = SelectField('角色', choices=[
         ('customer', '顾客'),

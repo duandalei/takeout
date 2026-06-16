@@ -35,32 +35,17 @@
 
         <!-- Action buttons -->
         <div class="mb-3">
-            {% if current_user.role == 'merchant' %}
-                {% if order.status == 'pending' %}
-                <a href="{{ url_for('order.action', id=order.order_id, action='confirm') }}"
-                   class="btn btn-success"><i class="bi bi-check-lg"></i> 接单</a>
-                {% endif %}
-                {% if order.status == 'confirmed' %}
-                <a href="{{ url_for('order.action', id=order.order_id, action='prepare') }}"
-                   class="btn btn-info"><i class="bi bi-fire"></i> 开始备餐</a>
-                {% endif %}
-                {% if order.status == 'preparing' %}
-                <a href="{{ url_for('order.action', id=order.order_id, action='ready') }}"
-                   class="btn btn-warning"><i class="bi bi-box-arrow-up"></i> 备好待取</a>
-                {% endif %}
-                {% if order.status in ('pending','confirmed') %}
-                <a href="{{ url_for('order.action', id=order.order_id, action='cancel') }}"
-                   class="btn btn-outline-danger"
-                   onclick="return confirm('确定取消？')"><i class="bi bi-x-lg"></i> 取消订单</a>
-                {% endif %}
+            {% set actor = {'user_id': current_user.user_id, 'role': current_user.role} %}
+            {% for action in OrderState.allowed_actions(order, actor) %}
+            {% set btn = OrderState.ACTION_BUTTONS.get(action) %}
+            {% if btn %}
+            <a href="{{ url_for('order.action', id=order.order_id, action=action) }}"
+               class="btn {{ btn.class }}"
+               {% if btn.confirm %}onclick="return confirm('确定取消？')"{% endif %}>
+               <i class="bi {{ btn.icon }}"></i> {{ btn.label }}
+            </a>
             {% endif %}
-
-            {% if current_user.role == 'customer' and order.status in ('pending','confirmed') %}
-            <a href="{{ url_for('order.action', id=order.order_id, action='cancel') }}"
-               class="btn btn-outline-danger"
-               onclick="return confirm('确定取消？')"><i class="bi bi-x-lg"></i> 取消订单</a>
-            {% endif %}
-
+            {% endfor %}
             {% if current_user.role == 'customer' and order.status == 'delivered' and not order.review %}
             <a href="{{ url_for('order.review', id=order.order_id) }}"
                class="btn btn-warning"><i class="bi bi-star"></i> 评价</a>

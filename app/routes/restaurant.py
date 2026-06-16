@@ -1,9 +1,8 @@
 """Restaurant routes: list / detail / create / edit / toggle status."""
 
 from flask import Blueprint, render_template, redirect, url_for, flash, request, session, g
-from app.models import db, Restaurant, MenuCategory, MenuItem
-from app.forms import RestaurantForm, MenuCategoryForm, MenuItemForm
-from app.routes.auth import login_required, role_required
+from app.models import db, Restaurant, MenuCategory
+from app.forms import RestaurantForm, MenuCategoryForm
 from app.domain.auth import require
 
 restaurant_bp = Blueprint('restaurant', __name__)
@@ -64,8 +63,7 @@ def my_restaurant():
 # Create restaurant
 # ============================================================
 @restaurant_bp.route('/create', methods=['GET', 'POST'])
-@login_required
-@role_required('merchant')
+@require(role='merchant')
 def create():
     existing = Restaurant.query.filter_by(owner_id=session['user_id']).first()
     if existing:
@@ -150,3 +148,26 @@ def add_category():
         return redirect(url_for('restaurant.my_restaurant'))
 
     return render_template('restaurant/category_form.html', form=form, action='添加')
+
+
+# ============================================================
+# Reorder menu categories (drag-and-drop)
+# ============================================================
+@restaurant_bp.route('/category/reorder', methods=['POST'])
+@require(role='merchant', owns='restaurant')
+def reorder_categories():
+    """接收前端拖拽后的分类ID顺序，更新 sort_order"""
+    restaurant = g.current_restaurant
+    data = request.get_json()
+    ordered_ids = data.get('order', [])
+
+    for index, category_id in enumerate(ordered_ids):
+        category = MenuCategory.query.filter_by(
+            category_id=category_id,
+            restaurant_id=restaurant.restaurant_id
+        ).first()
+        if category:
+            category.sort_order = index + 1   # 第0位 → 1，第1位 → 2……
+
+    db.session.commit()
+    return {'ok': True}

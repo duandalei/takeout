@@ -8,6 +8,13 @@ the order route handler and the ad-hoc status checks in delivery routes.
 from dataclasses import dataclass
 from typing import Optional, List
 
+from flask import session
+
+
+def get_actor():
+    """Build actor dict from session for OrderState.transition()."""
+    return {'user_id': session.get('user_id'), 'role': session.get('role')}
+
 
 @dataclass
 class TransitionResult:
@@ -59,7 +66,7 @@ class OrderState:
     }
 
     # Actions that require the merchant to own the order's restaurant
-    MERCHANT_OWNERSHIP_ACTIONS = {'confirm', 'prepare', 'ready'}
+    MERCHANT_OWNERSHIP_ACTIONS = {'confirm', 'prepare', 'ready', 'cancel'}
 
     # Actions that require the customer to own the order
     CUSTOMER_OWNERSHIP_ACTIONS = {'cancel'}
@@ -79,17 +86,19 @@ class OrderState:
         'cancelled':  '已取消',
     }
 
+    ACTION_BUTTONS = {
+        'confirm': {'class': 'btn-success',        'icon': 'bi-check-lg',      'label': '接单'},
+        'cancel':  {'class': 'btn-outline-danger', 'icon': 'bi-x-lg',          'label': '取消订单', 'confirm': True},
+        'prepare': {'class': 'btn-info',           'icon': 'bi-fire',          'label': '开始备餐'},
+        'ready':   {'class': 'btn-warning',        'icon': 'bi-box-arrow-up',  'label': '备好待取'},
+    }
+
     # Actions that are side-effect triggers (caller handles after transition)
     SIDE_EFFECT_ACTIONS = {
         'assign':  'rider_assigned',
         'pickup':  'rider_picked_up',
         'deliver': 'rider_delivered',
     }
-
-    ALL_STATUSES = [
-        'pending', 'confirmed', 'preparing', 'ready',
-        'assigned', 'picked_up', 'delivered', 'cancelled',
-    ]
 
     @classmethod
     def transition(cls, order, action: str, actor: dict) -> TransitionResult:
@@ -125,7 +134,7 @@ class OrderState:
         # 4. Resource ownership checks
         actor_id = actor.get('user_id')
 
-        if action in cls.MERCHANT_OWNERSHIP_ACTIONS:
+        if action in cls.MERCHANT_OWNERSHIP_ACTIONS and actor_role == 'merchant':
             # Merchant must own the restaurant that received this order
             if not cls._check_merchant_owns(order, actor_id):
                 return TransitionResult(ok=False, error='无权操作此订单')

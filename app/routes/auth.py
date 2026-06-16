@@ -1,43 +1,11 @@
-"""User auth routes: register / login / logout + authorization decorators."""
+"""User auth routes: register / login / logout."""
 
-from functools import wraps
 from flask import Blueprint, render_template, redirect, url_for, flash, session, request
 from werkzeug.security import generate_password_hash, check_password_hash
 from app.models import db, User
 from app.forms import LoginForm, RegisterForm
 
 auth_bp = Blueprint('auth', __name__)
-
-
-# ============================================================
-# Auth decorators (kept for backward compat; prefer app.domain.require)
-# ============================================================
-
-def login_required(f):
-    """Require login.  Prefer @require() from app.domain for new code."""
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if 'user_id' not in session:
-            flash('请先登录', 'warning')
-            return redirect(url_for('auth.login', next=request.path))
-        return f(*args, **kwargs)
-    return decorated
-
-
-def role_required(*roles):
-    """Require specific role.  Prefer @require(role=...) from app.domain for new code."""
-    def decorator(f):
-        @wraps(f)
-        def decorated(*args, **kwargs):
-            if 'user_id' not in session:
-                flash('请先登录', 'warning')
-                return redirect(url_for('auth.login'))
-            if session.get('role') not in roles:
-                flash('无权访问此页面', 'danger')
-                return redirect(url_for('home'))
-            return f(*args, **kwargs)
-        return decorated
-    return decorator
 
 
 # ============================================================
@@ -60,7 +28,6 @@ def register():
             password_hash=generate_password_hash(form.password.data),
             real_name=form.real_name.data,
             phone=form.phone.data,
-            email=form.email.data or None,
             address=form.address.data or None,
             role=form.role.data,
         )
